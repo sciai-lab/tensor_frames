@@ -1,7 +1,5 @@
-from typing import Tuple
-
 import torch
-from src.utils.wigner import _Jd, euler_angles_yxy, wigner_D_from_matrix
+from src.utils.wigner import euler_angles_yxy, wigner_D_from_matrix
 
 
 class LFrames:
@@ -35,7 +33,7 @@ class LFrames:
         self.wigner_cache = {}
 
     @property
-    def det(self) -> torch.Tensor:
+    def det(self):
         """Determinant of the o3 matrices.
 
         Returns:
@@ -48,7 +46,7 @@ class LFrames:
         return self._det
 
     @property
-    def inv(self) -> torch.Tensor:
+    def inv(self):
         """Inverse of the o3 matrices.
 
         Returns:
@@ -59,7 +57,7 @@ class LFrames:
         return self._inv
 
     @property
-    def angles(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def angles(self):
         """Euler angles in yxy convention corresponding to the o3 matrices.
 
         Returns:
@@ -70,7 +68,7 @@ class LFrames:
         return self._angles
 
     @property
-    def shape(self) -> torch.Size:
+    def shape(self):
         """Shape of the o3 matrices.
 
         Returns:
@@ -79,7 +77,7 @@ class LFrames:
         return self.matrices.shape
 
     @property
-    def device(self) -> torch.device:
+    def device(self):
         """Device of the o3 matrices.
 
         Returns:
@@ -87,7 +85,7 @@ class LFrames:
         """
         return self.matrices.device
 
-    def wigner_D(self, l: int) -> torch.Tensor:
+    def wigner_D(self, l, J):
         """Wigner D matrices corresponding to the rotation matrices.
 
         Args:
@@ -99,9 +97,8 @@ class LFrames:
         if self.cache_wigner and l in self.wigner_cache:
             return self.wigner_cache[l]
         else:
-            J = _Jd[l].to(self.device).to(self.matrices.dtype)
             wigner = wigner_D_from_matrix(
-                l, self.det[:, None, None] * self.matrices, J=J
+                l, self.det[:, None, None] * self.matrices, J=J, angles=self.angles
             )  # * self.det to ensure wigner gets rotation matrix
             if self.cache_wigner:
                 self.wigner_cache[l] = wigner
@@ -131,7 +128,7 @@ class ChangeOfLFrames:
         self._angles = None
 
     @property
-    def det(self) -> torch.Tensor:
+    def det(self):
         """Determinant of the o3 matrices.
 
         Returns:
@@ -144,7 +141,7 @@ class ChangeOfLFrames:
         return self._det
 
     @property
-    def inv(self) -> torch.Tensor:
+    def inv(self):
         """Inverse of the o3 matrices.
 
         Returns:
@@ -155,7 +152,7 @@ class ChangeOfLFrames:
         return self._inv
 
     @property
-    def angles(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def angles(self):
         """Euler angles in yxy convention corresponding to the o3 matrices.
 
         Returns:
@@ -166,7 +163,7 @@ class ChangeOfLFrames:
         return self._angles
 
     @property
-    def shape(self) -> torch.Size:
+    def shape(self):
         """Shape of the o3 matrices.
 
         Returns:
@@ -175,7 +172,7 @@ class ChangeOfLFrames:
         return self.matrices.shape
 
     @property
-    def device(self) -> torch.device:
+    def device(self):
         """Device of the o3 matrices.
 
         Returns:
@@ -183,7 +180,7 @@ class ChangeOfLFrames:
         """
         return self.matrices.device
 
-    def wigner_D(self, l: int) -> torch.Tensor:
+    def wigner_D(self, l, J):
         """Wigner D matrices corresponding to the rotation matrices.
 
         Args:
@@ -198,8 +195,9 @@ class ChangeOfLFrames:
             wigner_end = self.lframes_end.wigner_cache[l]
             return torch.bmm(wigner_end, wigner_start.transpose(-1, -2))
         else:
-            J = _Jd[l].to(self.device).to(self.matrices.dtype)
-            return wigner_D_from_matrix(l, self.det[:, None, None] * self.matrices, J=J)
+            return wigner_D_from_matrix(
+                l, self.det[:, None, None] * self.matrices, J=J, angles=self.angles
+            )
 
 
 if __name__ == "__main__":

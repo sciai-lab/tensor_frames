@@ -1,5 +1,4 @@
 import os
-from typing import Union
 
 import torch
 
@@ -14,7 +13,7 @@ _Jd = torch.load(os.path.join(os.path.dirname(__file__), "Jd.pt"))
 #
 # In 0.5.0, e3nn shifted to torch.matrix_exp which is significantly slower:
 # https://github.com/e3nn/e3nn/blob/0.5.0/e3nn/o3/_wigner.py#L92
-def _z_rot_mat(angle: torch.Tensor, l: int) -> torch.Tensor:
+def _z_rot_mat(angle, l):
     """Compute the wigner d matrix for a rotation around the z axis with a given angle for an
     angular momentum.
 
@@ -35,9 +34,7 @@ def _z_rot_mat(angle: torch.Tensor, l: int) -> torch.Tensor:
     return M
 
 
-def euler_angles_yxy(
-    matrix: torch.Tensor, handle_special_cases: bool = False, eps: float = 1e-9
-) -> torch.Tensor:
+def euler_angles_yxy(matrix, handle_special_cases=False, eps=1e-9):
     """Calculate the Euler angles using the yxy convention to match the wigner d from e3nn.
 
     Args:
@@ -74,9 +71,7 @@ def euler_angles_yxy(
     return angles[..., 0], angles[..., 1], angles[..., 2]
 
 
-def wigner_D_with_J(
-    l: int, J: torch.Tensor, alpha: torch.Tensor, beta: torch.Tensor, gamma: torch.Tensor
-) -> torch.Tensor:
+def wigner_D_with_J(l, J, alpha, beta, gamma):
     """
     Calculate the Wigner D matrix using the precomputed J matrix and Euler angles.
     Taken from https://github.com/atomicarchitects/equiformer_v2/blob/main/nets/equiformer_v2/wigner.py
@@ -106,12 +101,7 @@ def wigner_D_with_J(
     return Xa @ J @ Xb @ J @ Xc
 
 
-def wigner_D_from_matrix(
-    l: int,
-    matrix: torch.Tensor,
-    J: Union[None, torch.Tensor] = None,
-    handle_special_cases: bool = False,
-) -> torch.Tensor:
+def wigner_D_from_matrix(l, matrix, angles=None, J=None, handle_special_cases=False):
     """Calculate the Wigner D-matrix for a given angular momentum `l` and rotation matrix `matrix`.
 
     Args:
@@ -122,9 +112,18 @@ def wigner_D_from_matrix(
     Returns:
         torch.Tensor: The resulting Wigner D matrix of shape (..., 2l+1, 2l+1)
     """
+    if l == 0:
+        return torch.ones(matrix.shape[:-2] + (1, 1), dtype=matrix.dtype, device=matrix.device)
+    if l == 1:
+        return matrix
+
     if J is None:
         J = _Jd[l].to(matrix.dtype).to(matrix.device)
-    alpha, beta, gamma = euler_angles_yxy(matrix, handle_special_cases=handle_special_cases)
+    if angles is None:
+        alpha, beta, gamma = euler_angles_yxy(matrix, handle_special_cases=handle_special_cases)
+    else:
+        alpha, beta, gamma = angles
+
     return wigner_D_with_J(l, J, alpha, beta, gamma)
 
 
