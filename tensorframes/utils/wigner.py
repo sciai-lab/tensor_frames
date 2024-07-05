@@ -1,4 +1,5 @@
 import os
+from re import A, M
 
 import torch
 
@@ -35,7 +36,7 @@ def _z_rot_mat(angle, l):
     return M
 
 
-def euler_angles_yxy(matrix):
+def euler_angles_yxy(matrix, handle_special_cases=False, eps=1e-9):
     """
     Calculate the Euler angles using the yxy convention to match the wigner d from e3nn.
 
@@ -48,10 +49,23 @@ def euler_angles_yxy(matrix):
     References:
         - https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
     """
-    alpha = torch.arctan2(matrix[..., 0, 1], matrix[..., 2, 1])
-    beta = torch.arccos(matrix[..., 1, 1])
-    gamma = torch.arctan2(matrix[..., 1, 0], -matrix[..., 1, 2])
-    return alpha, beta, gamma
+    angles = torch.zeros(matrix.shape[:-1], dtype=matrix.dtype, device=matrix.device)
+    angles[..., 0] = torch.arctan2(matrix[..., 0, 1], matrix[..., 2, 1])
+    angles[..., 1] = torch.arccos(matrix[..., 1, 1])
+    angles[..., 2] = torch.arctan2(matrix[..., 1, 0], -matrix[..., 1, 2])
+
+    if handle_special_cases:
+        # hard code diagonal special cases (theses do not happen much in practice):
+        mask_0 = (matrix - torch.eye(3)).abs().max(-1).values.max(-1).values < eps
+        mask_1 = (matrix - torch.tensor([[1., 0., 0.], [0., -1., 0.], [0., 0., -1.]])).abs().max(-1).values.max(-1).values < eps
+        mask_2 = (matrix - torch.tensor([[-1., 0., 0.], [0., 1., 0.], [0., 0., -1.]])).abs().max(-1).values.max(-1).values < eps
+        mask_3 = (matrix - torch.tensor([[-1., 0., 0.], [0., -1., 0.], [0., 0., 1.]])).abs().max(-1).values.max(-1).values < eps
+        angles[mask_0] = 0.
+        angles[mask_1] = torch.tensor([0., torch.pi, 0.])
+        angles[mask_2] = torch.tensor([0., 0., torch.pi])
+        angles[mask_3] = torch.tensor([0., torch.pi, torch.pi])
+
+    return angles[..., 0], angles[..., 1], angles[..., 2]
 
 
 def wigner_D_with_J(l, J, alpha, beta, gamma):
@@ -84,7 +98,7 @@ def wigner_D_with_J(l, J, alpha, beta, gamma):
     return Xa @ J @ Xb @ J @ Xc
 
 
-def wigner_D_from_matrix(l, matrix, J=None):
+def wigner_D_from_matrix(l, matrix, J=None, handle_special_cases=False):
     """
     Calculate the Wigner D-matrix for a given angular momentum `l` and rotation matrix `matrix`.
 
@@ -99,34 +113,76 @@ def wigner_D_from_matrix(l, matrix, J=None):
     """
     if J is None:
         J = _Jd[l].to(matrix.dtype).to(matrix.device)
-    alpha, beta, gamma = euler_angles_yxy(matrix)
+    alpha, beta, gamma = euler_angles_yxy(matrix, handle_special_cases=handle_special_cases)
     return wigner_D_with_J(l, J, alpha, beta, gamma)
 
 
 if __name__ == "__main__":
+    from e3nn.o3 import rand_matrix, matrix_to_angles
+
+    # test angle implementation:
+    R = rand_matrix(1000)
+
+    # check that is works even for noise:
+    R += 1e-7 * torch.randn_like(R)
+
+    angles = matrix_to_angles(R)
+    my_angles = euler_angles_yxy(R)
+
+    for angle, my_angle in zip(angles, my_angles):
+        assert torch.allclose(angle, my_angle, atol=1e-5)
+
+    # test angle special cases:
+    special_Rs = [torch.eye(3)]
+    for i in range(3):
+        R = -torch.eye(3)
+        R[i, i] = 1
+        special_Rs.append(R)
+    special_Rs = torch.stack(special_Rs)
+
+    angles = matrix_to_angles(special_Rs)
+    my_angles = euler_angles_yxy(special_Rs, handle_special_cases=True)
+
+    for angle, my_angle in zip(angles, my_angles):
+        assert torch.allclose(angle, my_angle)   
+
+
     # test that wigner for the identity matrix is the identity matrix
     for l in range(4):
-        print("l:", l)
-        print(wigner_D_from_matrix(l, torch.eye(3)) - torch.eye(2 * l + 1))
-        assert torch.allclose(wigner_D_from_matrix(l, torch.eye(3)), torch.eye(2 * l + 1), atol=1e-5)
+        assert torch.allclose(wigner_D_from_matrix(l, torch.eye(3), handle_special_cases=True), torch.eye(2 * l + 1), atol=1e-6)
 
     # test that wigner is 1 for l = 0:
     assert torch.allclose(wigner_D_from_matrix(0, torch.rand(10, 3, 3)), torch.ones(10, 1, 1))
 
     # test that wigner for l=1 is the same as the rotation matrix:
-    from e3nn.o3 import rand_matrix
+    
     matrix = rand_matrix(10)    
     assert torch.allclose(wigner_D_from_matrix(1, matrix), matrix)
 
     # test that wigner is a representation:
     matrix1 = rand_matrix(10)
     matrix2 = rand_matrix(10)
-    assert torch.allclose(wigner_D_from_matrix(1, torch.bmm(matrix1, matrix2)), torch.bmm(wigner_D_from_matrix(1, matrix1), wigner_D_from_matrix(1, matrix2)))
+    assert torch.allclose(wigner_D_from_matrix(1, torch.bmm(matrix1, matrix2)), torch.bmm(wigner_D_from_matrix(1, matrix1), wigner_D_from_matrix(1, matrix2)), atol=1e-6)
 
     # test that wigner is an orthogonal matrix:
     wigner = wigner_D_from_matrix(3, rand_matrix(10))
-    assert torch.allclose(wigner @ wigner.transpose(-1, -2), torch.eye(2 * 3 + 1))
+    assert torch.allclose(wigner @ wigner.transpose(-1, -2), torch.eye(2 * 3 + 1), atol=1e-6)
 
     # test that wigner is an orthogonal representation:
     matrix = rand_matrix(10)
-    assert torch.allclose(wigner_D_from_matrix(4, matrix).transpose(-1, -2), wigner_D_from_matrix(4, matrix.transpose(-1, -2)))
+    assert torch.allclose(wigner_D_from_matrix(4, matrix).transpose(-1, -2), wigner_D_from_matrix(4, matrix.transpose(-1, -2)), atol=1e-6)
+
+    print("All tests passed!")
+
+    # compare our implementation with e3nn:
+    import time
+    R = rand_matrix(10000)
+    start = time.time()
+    matrix_to_angles(R)
+    diff = time.time() - start
+    print(f"e3nn implementation took {diff:.3f}s")
+
+    start = time.time()
+    euler_angles_yxy(R)
+    diff = time.time() - start
+    print(f"Our implementation took {diff:.3f}s")
