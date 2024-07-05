@@ -1,12 +1,9 @@
-import scipy as sp
 import torch
-from src.utils.wigner import euler_angles_yxy, wigner_D_from_matrix, _Jd
+from src.utils.wigner import _Jd, euler_angles_yxy, wigner_D_from_matrix
 
 
 class LFrames:
-    """
-    Class representing a collection of o3 matrices.
-    """
+    """Class representing a collection of o3 matrices."""
 
     def __init__(self, matrices: torch.Tensor, cache_wigner: bool = True, spatial_dim: int = 3):
         """Initialize the LFrames class.
@@ -20,7 +17,10 @@ class LFrames:
             So far this only supports 3D rotations.
         """
         assert spatial_dim == 3, "So far only 3D rotations are supported."
-        assert matrices.shape[-2:] == (spatial_dim, spatial_dim), "Rotations must be of shape (..., spatial_dim, spatial_dim)"
+        assert matrices.shape[-2:] == (
+            spatial_dim,
+            spatial_dim,
+        ), "Rotations must be of shape (..., spatial_dim, spatial_dim)"
 
         self.matrices = matrices
         self.spatial_dim = spatial_dim
@@ -34,20 +34,20 @@ class LFrames:
 
     @property
     def det(self):
-        """
-        Determinant of the o3 matrices.
+        """Determinant of the o3 matrices.
 
         Returns:
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = (torch.linalg.det(self.matrices) > 0).to(self.matrices.dtype)  # make sure that it is exactly 1 or -1
+            self._det = (torch.linalg.det(self.matrices) > 0).to(
+                self.matrices.dtype
+            )  # make sure that it is exactly 1 or -1
         return self._det
 
     @property
     def inv(self):
-        """
-        Inverse of the o3 matrices.
+        """Inverse of the o3 matrices.
 
         Returns:
             torch.Tensor: Tensor containing the inverses.
@@ -58,8 +58,7 @@ class LFrames:
 
     @property
     def angles(self):
-        """
-        Euler angles in yxy convention corresponding to the o3 matrices.
+        """Euler angles in yxy convention corresponding to the o3 matrices.
 
         Returns:
             torch.Tensor: Tensor containing the Euler angles.
@@ -70,8 +69,7 @@ class LFrames:
 
     @property
     def shape(self):
-        """
-        Shape of the o3 matrices.
+        """Shape of the o3 matrices.
 
         Returns:
             torch.Size: Size of the o3 matrices.
@@ -80,8 +78,7 @@ class LFrames:
 
     @property
     def device(self):
-        """
-        Device of the o3 matrices.
+        """Device of the o3 matrices.
 
         Returns:
             torch.device: Device of the o3 matrices.
@@ -89,8 +86,7 @@ class LFrames:
         return self.matrices.device
 
     def wigner_D(self, l):
-        """
-        Wigner D matrices corresponding to the rotation matrices.
+        """Wigner D matrices corresponding to the rotation matrices.
 
         Args:
             l (int): Degree of the Wigner D matrices.
@@ -102,26 +98,27 @@ class LFrames:
             return self.wigner_cache[l]
         else:
             J = _Jd[l].to(self.device).to(self.matrices.dtype)
-            wigner = wigner_D_from_matrix(l, self.det[:, None, None] * self.matrices, J=J)  # * self.det to ensure wigner gets rotation matrix
+            wigner = wigner_D_from_matrix(
+                l, self.det[:, None, None] * self.matrices, J=J
+            )  # * self.det to ensure wigner gets rotation matrix
             if self.cache_wigner:
                 self.wigner_cache[l] = wigner
             return wigner
-              
+
 
 class ChangeOfLFrames:
-    """
-    Represents a change of frames between two LFrames objects.
-    """
+    """Represents a change of frames between two LFrames objects."""
 
     def __init__(self, lframes_start: LFrames, lframes_end: LFrames):
-        """
-        Initialize the ChangeOfLFrames class.
+        """Initialize the ChangeOfLFrames class.
 
         Args:
             lframes_start (LFrames): The LFrames object from where to start the transform.
             lframes_end (LFrames): The LFrames object in which to end the transform.
         """
-        assert lframes_start.shape == lframes_end.shape, "Both LFrames objects must have the same shape."
+        assert (
+            lframes_start.shape == lframes_end.shape
+        ), "Both LFrames objects must have the same shape."
         self.lframes_start = lframes_start
         self.lframes_end = lframes_end
         self.matrices = torch.bmm(lframes_end.matrices, lframes_start.inv)
@@ -133,20 +130,20 @@ class ChangeOfLFrames:
 
     @property
     def det(self):
-        """
-        Determinant of the o3 matrices.
+        """Determinant of the o3 matrices.
 
         Returns:
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = (self.lframes_start.det * self.lframes_end.det).to(self.matrices.dtype)  # make sure that it is exactly 1 or -1
+            self._det = (self.lframes_start.det * self.lframes_end.det).to(
+                self.matrices.dtype
+            )  # make sure that it is exactly 1 or -1
         return self._det
 
     @property
     def inv(self):
-        """
-        Inverse of the o3 matrices.
+        """Inverse of the o3 matrices.
 
         Returns:
             torch.Tensor: Tensor containing the inverses.
@@ -157,8 +154,7 @@ class ChangeOfLFrames:
 
     @property
     def angles(self):
-        """
-        Euler angles in yxy convention corresponding to the o3 matrices.
+        """Euler angles in yxy convention corresponding to the o3 matrices.
 
         Returns:
             torch.Tensor: Tensor containing the Euler angles.
@@ -169,8 +165,7 @@ class ChangeOfLFrames:
 
     @property
     def shape(self):
-        """
-        Shape of the o3 matrices.
+        """Shape of the o3 matrices.
 
         Returns:
             torch.Size: Size of the o3 matrices.
@@ -179,8 +174,7 @@ class ChangeOfLFrames:
 
     @property
     def device(self):
-        """
-        Device of the o3 matrices.
+        """Device of the o3 matrices.
 
         Returns:
             torch.device: Device of the o3 matrices.
@@ -188,8 +182,7 @@ class ChangeOfLFrames:
         return self.matrices.device
 
     def wigner_D(self, l):
-        """
-        Wigner D matrices corresponding to the rotation matrices.
+        """Wigner D matrices corresponding to the rotation matrices.
 
         Args:
             l (int): Degree of the Wigner D matrices.
@@ -205,7 +198,7 @@ class ChangeOfLFrames:
         else:
             J = _Jd[l].to(self.device).to(self.matrices.dtype)
             return wigner_D_from_matrix(l, self.det[:, None, None] * self.matrices, J=J)
-        
+
 
 if __name__ == "__main__":
     # Example usage:

@@ -1,5 +1,4 @@
 import os
-from re import A, M
 
 import torch
 
@@ -15,8 +14,8 @@ _Jd = torch.load(os.path.join(os.path.dirname(__file__), "Jd.pt"))
 # In 0.5.0, e3nn shifted to torch.matrix_exp which is significantly slower:
 # https://github.com/e3nn/e3nn/blob/0.5.0/e3nn/o3/_wigner.py#L92
 def _z_rot_mat(angle, l):
-    """
-    Compute the wigner d matrix for a rotation around the z axis with a given angle for an angular momentum.
+    """Compute the wigner d matrix for a rotation around the z axis with a given angle for an
+    angular momentum.
 
     Args:
         angle (torch.Tensor): The rotation angle.
@@ -24,7 +23,6 @@ def _z_rot_mat(angle, l):
 
     Returns:
         torch.Tensor: The rotation matrix.
-
     """
     shape, device, dtype = angle.shape, angle.device, angle.dtype
     M = angle.new_zeros((*shape, 2 * l + 1, 2 * l + 1))
@@ -37,8 +35,7 @@ def _z_rot_mat(angle, l):
 
 
 def euler_angles_yxy(matrix, handle_special_cases=False, eps=1e-9):
-    """
-    Calculate the Euler angles using the yxy convention to match the wigner d from e3nn.
+    """Calculate the Euler angles using the yxy convention to match the wigner d from e3nn.
 
     Args:
         matrix (torch.Tensor): The input rotation matrix of shape (..., 3, 3).
@@ -55,15 +52,21 @@ def euler_angles_yxy(matrix, handle_special_cases=False, eps=1e-9):
     angles[..., 2] = torch.arctan2(matrix[..., 1, 0], -matrix[..., 1, 2])
 
     if handle_special_cases:
-        # hard code diagonal special cases (theses do not happen much in practice):
+        # hard code diagonal special cases (these do not happen much in practice):
         mask_0 = (matrix - torch.eye(3)).abs().max(-1).values.max(-1).values < eps
-        mask_1 = (matrix - torch.tensor([[1., 0., 0.], [0., -1., 0.], [0., 0., -1.]])).abs().max(-1).values.max(-1).values < eps
-        mask_2 = (matrix - torch.tensor([[-1., 0., 0.], [0., 1., 0.], [0., 0., -1.]])).abs().max(-1).values.max(-1).values < eps
-        mask_3 = (matrix - torch.tensor([[-1., 0., 0.], [0., -1., 0.], [0., 0., 1.]])).abs().max(-1).values.max(-1).values < eps
-        angles[mask_0] = 0.
-        angles[mask_1] = torch.tensor([0., torch.pi, 0.])
-        angles[mask_2] = torch.tensor([0., 0., torch.pi])
-        angles[mask_3] = torch.tensor([0., torch.pi, torch.pi])
+        mask_1 = (
+            matrix - torch.tensor([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])
+        ).abs().max(-1).values.max(-1).values < eps
+        mask_2 = (
+            matrix - torch.tensor([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
+        ).abs().max(-1).values.max(-1).values < eps
+        mask_3 = (
+            matrix - torch.tensor([[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]])
+        ).abs().max(-1).values.max(-1).values < eps
+        angles[mask_0] = 0.0
+        angles[mask_1] = torch.tensor([0.0, torch.pi, 0.0])
+        angles[mask_2] = torch.tensor([0.0, 0.0, torch.pi])
+        angles[mask_3] = torch.tensor([0.0, torch.pi, torch.pi])
 
     return angles[..., 0], angles[..., 1], angles[..., 2]
 
@@ -72,11 +75,11 @@ def wigner_D_with_J(l, J, alpha, beta, gamma):
     """
     Calculate the Wigner D matrix using the precomputed J matrix and Euler angles.
     Taken from https://github.com/atomicarchitects/equiformer_v2/blob/main/nets/equiformer_v2/wigner.py
- 
-    The paper which presents this approach: 
+
+    The paper which presents this approach:
     https://iopscience.iop.org/article/10.1088/1751-8113/40/7/011/pdf
-    
-    The originial implementation by Taco Cohen:
+
+    The original implementation by Taco Cohen:
     https://github.com/AMLab-Amsterdam/lie_learn/tree/master/lie_learn/representations/SO3/pinchon_hoggan
 
     Args:
@@ -99,8 +102,7 @@ def wigner_D_with_J(l, J, alpha, beta, gamma):
 
 
 def wigner_D_from_matrix(l, matrix, J=None, handle_special_cases=False):
-    """
-    Calculate the Wigner D-matrix for a given angular momentum `l` and rotation matrix `matrix`.
+    """Calculate the Wigner D-matrix for a given angular momentum `l` and rotation matrix `matrix`.
 
     Args:
         l (int): The angular momentum quantum number.
@@ -109,7 +111,6 @@ def wigner_D_from_matrix(l, matrix, J=None, handle_special_cases=False):
 
     Returns:
         torch.Tensor: The resulting Wigner D matrix of shape (..., 2l+1, 2l+1)
-
     """
     if J is None:
         J = _Jd[l].to(matrix.dtype).to(matrix.device)
@@ -118,7 +119,7 @@ def wigner_D_from_matrix(l, matrix, J=None, handle_special_cases=False):
 
 
 if __name__ == "__main__":
-    from e3nn.o3 import rand_matrix, matrix_to_angles
+    from e3nn.o3 import matrix_to_angles, rand_matrix
 
     # test angle implementation:
     R = rand_matrix(1000)
@@ -144,25 +145,32 @@ if __name__ == "__main__":
     my_angles = euler_angles_yxy(special_Rs, handle_special_cases=True)
 
     for angle, my_angle in zip(angles, my_angles):
-        assert torch.allclose(angle, my_angle)   
-
+        assert torch.allclose(angle, my_angle)
 
     # test that wigner for the identity matrix is the identity matrix
     for l in range(4):
-        assert torch.allclose(wigner_D_from_matrix(l, torch.eye(3), handle_special_cases=True), torch.eye(2 * l + 1), atol=1e-6)
+        assert torch.allclose(
+            wigner_D_from_matrix(l, torch.eye(3), handle_special_cases=True),
+            torch.eye(2 * l + 1),
+            atol=1e-6,
+        )
 
     # test that wigner is 1 for l = 0:
     assert torch.allclose(wigner_D_from_matrix(0, torch.rand(10, 3, 3)), torch.ones(10, 1, 1))
 
     # test that wigner for l=1 is the same as the rotation matrix:
-    
-    matrix = rand_matrix(10)    
+
+    matrix = rand_matrix(10)
     assert torch.allclose(wigner_D_from_matrix(1, matrix), matrix)
 
     # test that wigner is a representation:
     matrix1 = rand_matrix(10)
     matrix2 = rand_matrix(10)
-    assert torch.allclose(wigner_D_from_matrix(1, torch.bmm(matrix1, matrix2)), torch.bmm(wigner_D_from_matrix(1, matrix1), wigner_D_from_matrix(1, matrix2)), atol=1e-6)
+    assert torch.allclose(
+        wigner_D_from_matrix(1, torch.bmm(matrix1, matrix2)),
+        torch.bmm(wigner_D_from_matrix(1, matrix1), wigner_D_from_matrix(1, matrix2)),
+        atol=1e-6,
+    )
 
     # test that wigner is an orthogonal matrix:
     wigner = wigner_D_from_matrix(3, rand_matrix(10))
@@ -170,12 +178,17 @@ if __name__ == "__main__":
 
     # test that wigner is an orthogonal representation:
     matrix = rand_matrix(10)
-    assert torch.allclose(wigner_D_from_matrix(4, matrix).transpose(-1, -2), wigner_D_from_matrix(4, matrix.transpose(-1, -2)), atol=1e-6)
+    assert torch.allclose(
+        wigner_D_from_matrix(4, matrix).transpose(-1, -2),
+        wigner_D_from_matrix(4, matrix.transpose(-1, -2)),
+        atol=1e-6,
+    )
 
     print("All tests passed!")
 
     # compare our implementation with e3nn:
     import time
+
     R = rand_matrix(10000)
     start = time.time()
     matrix_to_angles(R)
