@@ -1,4 +1,5 @@
 import os
+from typing import Union
 
 import torch
 
@@ -13,7 +14,7 @@ _Jd = torch.load(os.path.join(os.path.dirname(__file__), "Jd.pt"))
 #
 # In 0.5.0, e3nn shifted to torch.matrix_exp which is significantly slower:
 # https://github.com/e3nn/e3nn/blob/0.5.0/e3nn/o3/_wigner.py#L92
-def _z_rot_mat(angle, l):
+def _z_rot_mat(angle: torch.Tensor, l: int) -> torch.Tensor:
     """Compute the wigner d matrix for a rotation around the z axis with a given angle for an
     angular momentum.
 
@@ -34,7 +35,9 @@ def _z_rot_mat(angle, l):
     return M
 
 
-def euler_angles_yxy(matrix, handle_special_cases=False, eps=1e-9):
+def euler_angles_yxy(
+    matrix: torch.Tensor, handle_special_cases: bool = False, eps: float = 1e-9
+) -> torch.Tensor:
     """Calculate the Euler angles using the yxy convention to match the wigner d from e3nn.
 
     Args:
@@ -71,7 +74,9 @@ def euler_angles_yxy(matrix, handle_special_cases=False, eps=1e-9):
     return angles[..., 0], angles[..., 1], angles[..., 2]
 
 
-def wigner_D_with_J(l, J, alpha, beta, gamma):
+def wigner_D_with_J(
+    l: int, J: torch.Tensor, alpha: torch.Tensor, beta: torch.Tensor, gamma: torch.Tensor
+) -> torch.Tensor:
     """
     Calculate the Wigner D matrix using the precomputed J matrix and Euler angles.
     Taken from https://github.com/atomicarchitects/equiformer_v2/blob/main/nets/equiformer_v2/wigner.py
@@ -101,7 +106,12 @@ def wigner_D_with_J(l, J, alpha, beta, gamma):
     return Xa @ J @ Xb @ J @ Xc
 
 
-def wigner_D_from_matrix(l, matrix, J=None, handle_special_cases=False):
+def wigner_D_from_matrix(
+    l: int,
+    matrix: torch.Tensor,
+    J: Union[None, torch.Tensor] = None,
+    handle_special_cases: bool = False,
+) -> torch.Tensor:
     """Calculate the Wigner D-matrix for a given angular momentum `l` and rotation matrix `matrix`.
 
     Args:
