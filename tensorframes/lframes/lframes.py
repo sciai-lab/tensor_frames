@@ -1,11 +1,13 @@
 import torch
-from src.utils.wigner import euler_angles_yxy, wigner_D_from_matrix
+from src.utils.wigner import _Jd, euler_angles_yxy, wigner_D_from_matrix
 
 
 class LFrames:
     """Class representing a collection of o3 matrices."""
 
-    def __init__(self, matrices: torch.Tensor, cache_wigner: bool = True, spatial_dim: int = 3):
+    def __init__(
+        self, matrices: torch.Tensor, cache_wigner: bool = True, spatial_dim: int = 3
+    ) -> None:
         """Initialize the LFrames class.
 
         Args:
@@ -33,7 +35,7 @@ class LFrames:
         self.wigner_cache = {}
 
     @property
-    def det(self):
+    def det(self) -> torch.Tensor:
         """Determinant of the o3 matrices.
 
         Returns:
@@ -46,7 +48,7 @@ class LFrames:
         return self._det
 
     @property
-    def inv(self):
+    def inv(self) -> torch.Tensor:
         """Inverse of the o3 matrices.
 
         Returns:
@@ -57,7 +59,7 @@ class LFrames:
         return self._inv
 
     @property
-    def angles(self):
+    def angles(self) -> torch.Tensor:
         """Euler angles in yxy convention corresponding to the o3 matrices.
 
         Returns:
@@ -68,7 +70,7 @@ class LFrames:
         return self._angles
 
     @property
-    def shape(self):
+    def shape(self) -> torch.Size:
         """Shape of the o3 matrices.
 
         Returns:
@@ -77,7 +79,7 @@ class LFrames:
         return self.matrices.shape
 
     @property
-    def device(self):
+    def device(self) -> torch.device:
         """Device of the o3 matrices.
 
         Returns:
@@ -85,7 +87,7 @@ class LFrames:
         """
         return self.matrices.device
 
-    def wigner_D(self, l, J):
+    def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
         """Wigner D matrices corresponding to the rotation matrices.
 
         Args:
@@ -108,7 +110,7 @@ class LFrames:
 class ChangeOfLFrames:
     """Represents a change of frames between two LFrames objects."""
 
-    def __init__(self, lframes_start: LFrames, lframes_end: LFrames):
+    def __init__(self, lframes_start: LFrames, lframes_end: LFrames) -> None:
         """Initialize the ChangeOfLFrames class.
 
         Args:
@@ -128,7 +130,7 @@ class ChangeOfLFrames:
         self._angles = None
 
     @property
-    def det(self):
+    def det(self) -> torch.Tensor:
         """Determinant of the o3 matrices.
 
         Returns:
@@ -141,7 +143,7 @@ class ChangeOfLFrames:
         return self._det
 
     @property
-    def inv(self):
+    def inv(self) -> torch.Tensor:
         """Inverse of the o3 matrices.
 
         Returns:
@@ -152,7 +154,7 @@ class ChangeOfLFrames:
         return self._inv
 
     @property
-    def angles(self):
+    def angles(self) -> torch.Tensor:
         """Euler angles in yxy convention corresponding to the o3 matrices.
 
         Returns:
@@ -163,7 +165,7 @@ class ChangeOfLFrames:
         return self._angles
 
     @property
-    def shape(self):
+    def shape(self) -> torch.Size:
         """Shape of the o3 matrices.
 
         Returns:
@@ -172,7 +174,7 @@ class ChangeOfLFrames:
         return self.matrices.shape
 
     @property
-    def device(self):
+    def device(self) -> torch.device:
         """Device of the o3 matrices.
 
         Returns:
@@ -180,7 +182,7 @@ class ChangeOfLFrames:
         """
         return self.matrices.device
 
-    def wigner_D(self, l, J):
+    def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
         """Wigner D matrices corresponding to the rotation matrices.
 
         Args:
@@ -204,13 +206,14 @@ if __name__ == "__main__":
     # Example usage:
     matrices = torch.rand(2, 3, 3)
     lframes = LFrames(matrices)
-    print("wigner_d for l=2:", lframes.wigner_D(2))
+    _Jd = [J.to(matrices.dtype).to(matrices.device) for J in _Jd]
+    print("wigner_d for l=2:", lframes.wigner_D(2, J=_Jd[2]))
 
     matrices2 = torch.rand(2, 3, 3)
     lframes2 = LFrames(matrices2)
-    print("wigner_d for l=2:", lframes2.wigner_D(2))
-    print("wigner_d for l=0:", lframes2.wigner_D(0))
+    print("wigner_d for l=2:", lframes2.wigner_D(2, J=_Jd[2]))
+    print("wigner_d for l=0:", lframes2.wigner_D(0, J=_Jd[1]))
 
     change = ChangeOfLFrames(lframes, lframes2)
-    print("wigner_d for l=1:", change.wigner_D(1))
-    print("wigner_d for l=2:", change.wigner_D(2))
+    print("wigner_d for l=1:", change.wigner_D(1, J=_Jd[1]))
+    print("wigner_d for l=2:", change.wigner_D(2, J=_Jd[2]))

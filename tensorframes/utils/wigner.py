@@ -13,7 +13,7 @@ _Jd = torch.load(os.path.join(os.path.dirname(__file__), "Jd.pt"))
 #
 # In 0.5.0, e3nn shifted to torch.matrix_exp which is significantly slower:
 # https://github.com/e3nn/e3nn/blob/0.5.0/e3nn/o3/_wigner.py#L92
-def _z_rot_mat(angle, l):
+def _z_rot_mat(angle, l: int) -> torch.Tensor:
     """Compute the wigner d matrix for a rotation around the z axis with a given angle for an
     angular momentum.
 
@@ -34,11 +34,15 @@ def _z_rot_mat(angle, l):
     return M
 
 
-def euler_angles_yxy(matrix, handle_special_cases=False, eps=1e-9):
+def euler_angles_yxy(
+    matrix: torch.Tensor, handle_special_cases: bool = False, eps: float = 1e-9
+) -> torch.Tensor:
     """Calculate the Euler angles using the yxy convention to match the wigner d from e3nn.
 
     Args:
         matrix (torch.Tensor): The input rotation matrix of shape (..., 3, 3).
+        handle_special_cases (bool, optional): Whether to handle special cases where the matrix is diagonal. Defaults to False.
+        eps (float, optional): The epsilon value to use for detecting the special cases. Defaults to 1e-9.
 
     Returns:
         torch.Tensor: The Euler angles alpha, beta, and gamma, each of shape (...).
@@ -71,7 +75,9 @@ def euler_angles_yxy(matrix, handle_special_cases=False, eps=1e-9):
     return angles[..., 0], angles[..., 1], angles[..., 2]
 
 
-def wigner_D_with_J(l, J, alpha, beta, gamma):
+def wigner_D_with_J(
+    l: int, J: torch.Tensor, alpha: torch.Tensor, beta: torch.Tensor, gamma: torch.Tensor
+) -> torch.Tensor:
     """
     Calculate the Wigner D matrix using the precomputed J matrix and Euler angles.
     Taken from https://github.com/atomicarchitects/equiformer_v2/blob/main/nets/equiformer_v2/wigner.py
@@ -101,13 +107,21 @@ def wigner_D_with_J(l, J, alpha, beta, gamma):
     return Xa @ J @ Xb @ J @ Xc
 
 
-def wigner_D_from_matrix(l, matrix, angles=None, J=None, handle_special_cases=False):
+def wigner_D_from_matrix(
+    l: int,
+    matrix: torch.Tensor,
+    angles: torch.Tensor = None,
+    J: torch.Tensor = None,
+    handle_special_cases: bool = False,
+) -> torch.Tensor:
     """Calculate the Wigner D-matrix for a given angular momentum `l` and rotation matrix `matrix`.
 
     Args:
         l (int): The angular momentum quantum number.
         matrix (torch.Tensor): The rotation matrix. shape (..., 3, 3)
+        angles (torch.Tensor, optional): The Euler angles in yxy convention. If not provided, it will be calculated from the matrix.
         J (torch.Tensor, optional): The J matrix. If not provided, it will be looked up based on the angular momentum `l`.
+        handle_special_cases (bool, optional): Whether to handle special cases where the matrix is diagonal. Defaults to False.
 
     Returns:
         torch.Tensor: The resulting Wigner D matrix of shape (..., 2l+1, 2l+1)
