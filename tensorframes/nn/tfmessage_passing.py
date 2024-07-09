@@ -3,6 +3,8 @@ from typing import Any, Dict
 import torch
 from torch_geometric.nn import MessagePassing
 
+from tensorframes.lframes.lframes import ChangeOfLFrames
+
 
 class TFMessagePassing(MessagePassing):
     """TFMessagePassing class represents a message passing algorithm in the tensorframes formalism.
@@ -55,9 +57,8 @@ class TFMessagePassing(MessagePassing):
         Returns:
             Dict[str, Any]: The modified inputs dictionary.
         """
-        assert inputs.get("lfames") is not None, "lframes are not in the propagate inputs"
-        self.lframes = inputs["lframes"]
-        inputs.pop("lframes")
+        assert inputs.get("lframes") is not None, "lframes are not in the propagate inputs"
+        self.lframes = inputs.pop("lframes")
         return inputs
 
     def pre_message_hook(self, module: Any, inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -74,9 +75,9 @@ class TFMessagePassing(MessagePassing):
 
         # calculate lframes_i, lframes_j and the U matrix
         # TODO: change this to the actual functions
-        lframes_i = self.lframes[inputs["edge_index"][0]]
-        lframes_j = self.lframes[inputs["edge_index"][1]]
-        U = lframes_i @ lframes_j.T
+        lframes_i = self.lframes.index_select(inputs["edge_index"][1])
+        lframes_j = self.lframes.index_select(inputs["edge_index"][0])
+        U = ChangeOfLFrames(lframes_i, lframes_j)
 
         # now go through the params_dict and get the representations and transform the features in the right way
         for key, value in self.params_dict.items():
