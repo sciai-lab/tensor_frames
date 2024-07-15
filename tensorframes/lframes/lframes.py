@@ -43,9 +43,7 @@ class LFrames:
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = (torch.linalg.det(self.matrices) > 0).to(
-                self.matrices.dtype
-            )  # make sure that it is exactly 1 or -1
+            self._det = torch.linalg.det(self.matrices)
         return self._det
 
     @property
@@ -168,9 +166,7 @@ class ChangeOfLFrames:
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = (self.lframes_start.det * self.lframes_end.det).to(
-                self.matrices.dtype
-            )  # make sure that it is exactly 1 or -1
+            self._det = self.lframes_start.det * self.lframes_end.det
         return self._det
 
     @property
