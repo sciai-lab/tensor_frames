@@ -1,6 +1,5 @@
 from typing import Any, Dict
 
-import torch
 from torch_geometric.nn import MessagePassing
 
 from tensorframes.lframes.lframes import ChangeOfLFrames
@@ -9,12 +8,10 @@ from tensorframes.lframes.lframes import ChangeOfLFrames
 class TFMessagePassing(MessagePassing):
     """TFMessagePassing class represents a message passing algorithm in the tensorframes formalism.
 
-    TODO: Cite paper
+    https://arxiv.org/abs/2405.15389v1
     """
 
-    def __init__(
-        self, params_dict: Dict[str, Dict[str, Any]]
-    ) -> None:  # TODO: change None after str to actual tensor reps type
+    def __init__(self, params_dict: Dict[str, Dict[str, Any]]) -> None:
         """Initializes a new instance of the TFMessagePassing class.
 
         Args:
@@ -31,22 +28,18 @@ class TFMessagePassing(MessagePassing):
             }
         """
         self.params_dict = params_dict
+
+        for key, value in self.params_dict.items():
+            if value["type"] is not None:
+                self.params_dict[key]["transform"] = value["rep"].get_transform_class()
+
         super().__init__()
 
         # Register hooks to call before propagating and before sending messages
         self.register_propagate_forward_pre_hook(self.pre_propagate_hook)
         self.register_message_forward_pre_hook(self.pre_message_hook)
 
-    def forward(self):
-        # create fully connected graph of 5 nodes
-        edge_index = torch.tensor([[0, 1, 1, 2, 2, 3, 4], [1, 0, 2, 1, 3, 2, 2]], dtype=torch.long)
-
-        # create random node features
-        x = torch.randn(5, 16)
-
-        self.propagate(edge_index, x=x, test="test")
-
-    def pre_propagate_hook(self, module: Any, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def pre_propagate_hook(self, module: Any, inputs: tuple) -> tuple:
         """A hook method called before propagating messages in the message passing algorithm. We
         save the lframes in the class variable and remove it from the inputs dictionary.
 
@@ -57,11 +50,14 @@ class TFMessagePassing(MessagePassing):
         Returns:
             Dict[str, Any]: The modified inputs dictionary.
         """
-        assert inputs.get("lframes") is not None, "lframes are not in the propagate inputs"
-        self.lframes = inputs.pop("lframes")
+        assert inputs[-1].get("lframes") is not None, "lframes are not in the propagate inputs"
+
+        self.lframes = inputs[-1].pop("lframes")
+        self.edge_index = inputs[0]
+
         return inputs
 
-    def pre_message_hook(self, module: Any, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def pre_message_hook(self, module: Any, inputs: tuple) -> tuple:
         """Pre-message hook method that is called before passing messages in the message passing
         algorithm. We transform the features according to the representations in the params_dict.
 
@@ -74,28 +70,19 @@ class TFMessagePassing(MessagePassing):
         """
 
         # calculate lframes_i, lframes_j and the U matrix
-        # TODO: change this to the actual functions
-        lframes_i = self.lframes.index_select(inputs["edge_index"][1])
-        lframes_j = self.lframes.index_select(inputs["edge_index"][0])
+        lframes_i = self.lframes.index_select(self.edge_index[1])
+        lframes_j = self.lframes.index_select(self.edge_index[0])
         U = ChangeOfLFrames(lframes_i, lframes_j)
 
         # now go through the params_dict and get the representations and transform the features in the right way
         for key, value in self.params_dict.items():
             if value["type"] == "local":
+                assert inputs[-1].get(key + "_j") is not None, f"Key {key}_j not in inputs"
                 # transform the features according to the representation
-                inputs[key + "_j"] = value["rep"].transform_coeffs(inputs[key + "_j"], U)
+                inputs[-1][key + "_j"] = value["transform"](inputs[-1][key + "_j"], U)
             elif value["type"] == "global":
+                assert inputs[-1].get(key) is not None, f"Key {key} not in inputs"
                 # get the representation and apply it to the features
-                inputs[key] = value["rep"].transform_coeffs(inputs[key], lframes_j)
+                inputs[-1][key] = value["transform"](inputs[-1][key], lframes_j)
 
         return inputs
-
-
-if __name__ == "__main__":
-    params_dict = {
-        "feat_0": {"type": "local", "rep": "1x0n"},
-        "feat_1": {"type": "global", "rep": "1x0n"},
-    }
-
-    mp = TFMessagePassing(params_dict)
-    mp.forward()

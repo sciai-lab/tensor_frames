@@ -1,9 +1,10 @@
 from typing import Tuple, Union
 
 import torch
-from src.utils.lframes import ChangeOfLFrames, LFrames
 from torch import Tensor
 from torch.nn import Module
+
+from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
 
 
 class TensorRep(Tuple):
@@ -265,6 +266,18 @@ class TensorReps(Tuple):
                 out.append((mul, rep))
 
         return TensorReps(out)
+
+    def get_transform_class(self, use_parallel: bool = True, avoid_einsum: bool = False):
+        """Returns the tensor reps transform class.
+
+        Args:
+            use_parallel (bool, optional): Whether to use parallel computation for the transformation. Defaults to True.
+            avoid_einsum (bool, optional): Whether to avoid using `torch.einsum` for the transformation. Defaults to False.
+
+        Returns:
+            TensorRepsTransform: The tensor reps transform class.
+        """
+        return TensorRepsTransform(self, use_parallel, avoid_einsum)
 
     def sort(self):
         """Sorts the tensor reps by the order of the reps.

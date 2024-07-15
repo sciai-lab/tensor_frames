@@ -1,10 +1,11 @@
 from typing import Tuple, Union
 
 import torch
-from src.utils.lframes import ChangeOfLFrames, LFrames
-from src.utils.wigner import _Jd
 from torch import Tensor
 from torch.nn import Module
+
+from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.utils.wigner import _Jd
 
 
 class Irrep(Tuple):
@@ -262,6 +263,14 @@ class Irreps(Tuple):
                 out.append((mul, rep))
 
         return Irreps(out)
+
+    def get_transform_class(self) -> "IrrepsTransform":
+        """Returns an instance of the `IrrepsTransform` class based on the `Irreps` object.
+
+        Returns:
+            IrrepsTransform: An instance of the `IrrepsTransform` class.
+        """
+        return IrrepsTransform(self)
 
     def sort(self):
         """Sorts the irreps by angular momentum in descending order.
