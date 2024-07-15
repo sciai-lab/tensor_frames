@@ -16,7 +16,6 @@ $$
 f_i^{(k)}=\psi^{(k)}\bigg( f_i^{(k-1)}, \bigoplus_{j\in\mathcal{N}}^{\vphantom{j\in\mathcal{N}}}\phi^{(k)}\left(f_i^{(k-1)},\rho(g_i g_j^{-1})f_j^{(k-1)}, \rho_e(g_i)e_{ji}, R_i(\mathbf x_i - \mathbf x_j)\right) \bigg)
 $$
 
-
 The `TFMessagePassing` class is introduced to efficiently implement these layers, abstracting the transformation behavior of the parameters. For predicting local frames, the `LearnedLFrames` module is available, which calculates the local frame based on a local neighborhood. Additionally, we provide input and output layers to build fully end-to-end equivariant models, adhering to the guidelines outlined in the referenced paper.
 
 ### Create your own module
@@ -45,7 +44,7 @@ class GCNConv(TFMessagePassing):
 module = GCNConv(TensorReps("16x0n+8x1n"), TensorReps("4x0n+1x1n"))
 ```
 
-Here the feature `x_j` is automatically transformed into the local frame of node i. The transformation bahavior of the paramaters which are parsed in the propagate function can be determined by the `params_dict`.
+Here the feature `x_j` is automatically transformed into the local frame of node i. The transformation behavior of the parameters which are parsed in the propagate function can be determined by the `params_dict`.
 
 ## Installation
 
