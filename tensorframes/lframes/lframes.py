@@ -1,5 +1,6 @@
 import torch
-from src.utils.wigner import _Jd, euler_angles_yxy, wigner_D_from_matrix
+
+from tensorframes.utils.wigner import _Jd, euler_angles_yxy, wigner_D_from_matrix
 
 
 class LFrames:
@@ -42,9 +43,7 @@ class LFrames:
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = (torch.linalg.det(self.matrices) > 0).to(
-                self.matrices.dtype
-            )  # make sure that it is exactly 1 or -1
+            self._det = torch.linalg.det(self.matrices)
         return self._det
 
     @property
@@ -86,6 +85,36 @@ class LFrames:
             torch.device: Device of the o3 matrices.
         """
         return self.matrices.device
+
+    def index_select(self, indices: torch.Tensor) -> "LFrames":
+        """Selects the rotation matrices corresponding to the given indices.
+
+        Args:
+            indices (torch.Tensor): Tensor containing the indices to select.
+
+        Returns:
+            LFrames: LFrames object containing the selected rotation matrices.
+        """
+
+        new_lframes = LFrames(
+            self.matrices.index_select(0, indices),
+            cache_wigner=self.cache_wigner,
+            spatial_dim=self.spatial_dim,
+        )
+
+        # need to copy the attributes if they are not None
+        if self._det is not None:
+            new_lframes._det = self.det.index_select(0, indices)
+        if self._inv is not None:
+            new_lframes._inv = self.inv.index_select(0, indices)
+        if self._angles is not None:
+            new_lframes._angles = self.angles.index_select(0, indices)
+
+        if self.cache_wigner and self.wigner_cache is not {}:
+            for l in self.wigner_cache:
+                new_lframes.wigner_cache[l] = self.wigner_cache[l].index_select(0, indices)
+
+        return new_lframes
 
     def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
         """Wigner D matrices corresponding to the rotation matrices.
@@ -137,9 +166,7 @@ class ChangeOfLFrames:
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = (self.lframes_start.det * self.lframes_end.det).to(
-                self.matrices.dtype
-            )  # make sure that it is exactly 1 or -1
+            self._det = self.lframes_start.det * self.lframes_end.det
         return self._det
 
     @property
