@@ -72,17 +72,17 @@ class TFMessagePassing(MessagePassing):
         # calculate lframes_i, lframes_j and the U matrix
         lframes_i = self.lframes.index_select(self.edge_index[1])
         lframes_j = self.lframes.index_select(self.edge_index[0])
-        U = ChangeOfLFrames(lframes_i, lframes_j)
+        U = ChangeOfLFrames(lframes_start=lframes_j, lframes_end=lframes_i)
 
         # now go through the params_dict and get the representations and transform the features in the right way
-        for key, value in self.params_dict.items():
-            if value["type"] == "local":
-                assert inputs[-1].get(key + "_j") is not None, f"Key {key}_j not in inputs"
+        for param, param_info in self.params_dict.items():
+            if param_info["type"] == "local":
+                assert inputs[-1].get(param + "_j") is not None, f"Key {param}_j not in inputs"
                 # transform the features according to the representation
-                inputs[-1][key + "_j"] = value["transform"](inputs[-1][key + "_j"], U)
-            elif value["type"] == "global":
-                assert inputs[-1].get(key) is not None, f"Key {key} not in inputs"
+                inputs[-1][param + "_j"] = param_info["transform"](inputs[-1][param + "_j"], U)
+            elif param_info["type"] == "global":
+                assert inputs[-1].get(param) is not None, f"Key {param} not in inputs"
                 # get the representation and apply it to the features
-                inputs[-1][key] = value["transform"](inputs[-1][key], lframes_j)
+                inputs[-1][param] = param_info["transform"](inputs[-1][param], lframes_i)
 
         return inputs
