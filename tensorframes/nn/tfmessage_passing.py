@@ -72,7 +72,7 @@ class TFMessagePassing(MessagePassing):
         # calculate lframes_i, lframes_j and the U matrix
         lframes_i = self.lframes.index_select(self.edge_index[1])
         lframes_j = self.lframes.index_select(self.edge_index[0])
-        U = ChangeOfLFrames(lframes_i, lframes_j)
+        U = ChangeOfLFrames(lframes_start=lframes_j, lframes_end=lframes_i)
 
         # now go through the params_dict and get the representations and transform the features in the right way
         for key, value in self.params_dict.items():
@@ -83,6 +83,6 @@ class TFMessagePassing(MessagePassing):
             elif value["type"] == "global":
                 assert inputs[-1].get(key) is not None, f"Key {key} not in inputs"
                 # get the representation and apply it to the features
-                inputs[-1][key] = value["transform"](inputs[-1][key], lframes_j)
+                inputs[-1][key] = value["transform"](inputs[-1][key], lframes_i)
 
         return inputs
