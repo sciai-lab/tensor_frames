@@ -6,6 +6,7 @@ from torch_geometric.nn import MessagePassing
 from torchvision.ops import MLP
 
 from tensorframes.lframes.gram_schmidt import gram_schmidt
+from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.embedding.envelope import EnvelopePoly
 
 
@@ -84,7 +85,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
 
     def forward(
         self, x: Tensor, radial: Tensor, pos: Tensor, edge_index: Tensor, edge_attr: Tensor
-    ) -> torch.Tensor:
+    ) -> LFrames:
         """Forward pass of the learning_lframes module.
 
         Args:
@@ -95,7 +96,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             edge_attr (Tensor): Edge attribute tensor.
 
         Returns:
-            torch.Tensor: Local frames tensor.
+            LFrames: The local frames object containing the local frames.
         """
         vecs = self.propagate(edge_index, x=x, radial=radial, pos=pos, edge_attr=edge_attr)
 
@@ -117,9 +118,30 @@ class LearnedGramSchmidtLFrames(MessagePassing):
                 vecs[:, 0, :], vecs[:, 1, :], exceptional_choice=self.exceptional_choice
             )
 
-        return local_frames
+        return LFrames(local_frames)
 
-    def message(self, x_i, x_j, radial, pos_i, pos_j, edge_attr):
+    def message(
+        self,
+        x_i: Tensor,
+        x_j: Tensor,
+        radial: Tensor,
+        pos_i: Tensor,
+        pos_j: Tensor,
+        edge_attr: Tensor,
+    ) -> Tensor:
+        """Computes the message passed between two nodes in the graph.
+
+        Args:
+            x_i (Tensor): The input features of node i.
+            x_j (Tensor): The input features of node j.
+            radial (Tensor): The radial input.
+            pos_i (Tensor): The position of node i.
+            pos_j (Tensor): The position of node j.
+            edge_attr (Tensor): The attributes of the edge between node i and node j.
+
+        Returns:
+            Tensor: The computed message.
+        """
         if self.scalar_input_dim == 0:
             inp = radial
         else:

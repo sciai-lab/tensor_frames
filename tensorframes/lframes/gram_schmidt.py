@@ -22,7 +22,7 @@ def gram_schmidt(
         eps (float, optional): A small value used for numerical stability. Defaults to 1e-6.
         normalized (bool, optional): Whether to normalize the output vectors. Defaults to True.
         exceptional_choice (str, optional): The method to handle exceptional cases where the input vectors have zero length.
-            Can be either "random" to add random noise to the vectors, or "zero" to set the vectors to zero.
+            Can be either "random" to use a random vector instead, or "zero" to set the vectors to zero.
             Defaults to "random".
 
     Returns:
