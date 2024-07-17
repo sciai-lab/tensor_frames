@@ -11,6 +11,9 @@ from tensorframes.nn.embedding.envelope import EnvelopePoly
 
 
 class LearnedGramSchmidtLFrames(MessagePassing):
+    """The LearnedGramSchmidtLFrames class is a message passing neural network that learns local
+    frames from its neighborhood."""
+
     def __init__(
         self,
         scalar_input_dim: int,
@@ -25,7 +28,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
         **mlp_kwargs: dict,
     ) -> None:
-        """Initialize the LearningLFrames model.
+        """Initialize the LearnedGramSchmidtLFrames model.
 
         Args:
             scalar_input_dim (int): The dimension of the scalar input.
