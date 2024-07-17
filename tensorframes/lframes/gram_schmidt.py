@@ -12,7 +12,7 @@ def gram_schmidt(
     eps: float = 1e-6,
     normalized: bool = True,
     exceptional_choice: str = "random",
-):
+) -> Tensor:
     """Applies the Gram-Schmidt process to a set of input vectors to orthogonalize them.
 
     Args:
