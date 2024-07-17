@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from tensorframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import compute_edge_vec
 
 
@@ -28,20 +29,32 @@ class AngularEmbedding(torch.nn.Module):
         raise NotImplementedError
 
     def forward(
-        self, pos: Union[Tensor, Tuple], edge_index: Tensor, edge_vec: Tensor = None
+        self,
+        pos: Union[Tensor, Tuple] = None,
+        edge_index: Tensor = None,
+        lframes: LFrames = None,
+        edge_vec: Tensor = None,
     ) -> Tensor:
         """Forward pass of the AngularEmbedding module.
 
+        Either pos, edge_index, and lframes  or edge_vec must be provided.
+
         Args:
-            pos (Union[Tensor, Tuple]): The position tensor or tuple.
-            edge_index (Tensor): The edge index tensor.
+            pos (Union[Tensor, Tuple], optional): The position tensor or tuple.
+            edge_index (Tensor, optional): The edge index tensor.
+            lframes (LFrames, optional): The LFrames object. Defaults to None.
             edge_vec (Tensor, optional): The edge vector tensor. Defaults to None.
 
         Returns:
             Tensor: The computed embedding.
         """
         if edge_vec is None:
-            edge_vec = compute_edge_vec(pos, edge_index)
+            assert lframes is not None, "lframes must be provided if edge_vec is not provided."
+            assert pos is not None, "pos must be provided if edge_vec is not provided."
+            assert (
+                edge_index is not None
+            ), "edge_index must be provided if edge_vec is not provided."
+            edge_vec = compute_edge_vec(pos, edge_index, lframes=lframes)
 
         return self.compute_embedding(edge_vec)
 
@@ -188,3 +201,43 @@ class GaussianOnSphereEmbedding(AngularEmbedding):
             exp = exp / torch.sqrt(self.widths * torch.pi).to(edge_vec.dtype)
 
         return exp
+
+
+if __name__ == "__main__":
+    from e3nn.o3 import rand_matrix
+
+    pos = torch.rand(10, 3)
+    edge_index = torch.randint(0, 10, (2, 20))
+    lframes = rand_matrix(10)
+    parity_mask = torch.randint(0, 2, (10,), dtype=torch.bool)
+    lframes[parity_mask, :, 0] *= -1
+    lframes = LFrames(matrices=lframes)
+
+    edge_vec = compute_edge_vec(pos, edge_index, lframes)
+
+    # test trivial angular embedding
+    trivial = TrivialAngularEmbedding(normalize=True)
+    assert torch.allclose(
+        trivial(edge_vec=edge_vec),
+        edge_vec / (torch.norm(edge_vec, dim=-1, keepdim=True) + 1e-9),
+        atol=1e-7,
+    )
+    assert torch.allclose(
+        trivial(pos=pos, edge_index=edge_index, lframes=lframes),
+        trivial(edge_vec=edge_vec),
+        atol=1e-7,
+    )
+    assert torch.allclose(
+        trivial(pos=(pos, pos), edge_index=edge_index, lframes=(lframes, lframes)),
+        trivial(edge_vec=edge_vec),
+        atol=1e-7,
+    )
+
+    # test spherical harmonics embedding
+    sp_embedding = SphericalHarmonicsEmbedding(lmax=2)
+    assert torch.allclose(
+        sp_embedding(edge_vec=edge_vec),
+        sp_embedding(pos=pos, edge_index=edge_index, lframes=lframes),
+    )
+
+    print("All tests passed!")

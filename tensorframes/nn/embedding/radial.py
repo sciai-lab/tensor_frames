@@ -5,11 +5,12 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+from tensorframes.lframes import LFrames
 from tensorframes.nn.envelope import Envelope
 
 
 def compute_edge_vec(
-    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[Tensor, Tuple] = None
+    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple] = None
 ) -> Tensor:
     """Compute the edge vectors between node positions and rotates them into the local frames of
     the receiving nodes.
@@ -37,7 +38,7 @@ def compute_edge_vec(
 
     edge_vec = pos_j - pos_i
     if lframes[1] is not None:
-        lframes_i = lframes[1].index_select(0, edge_index[1]).reshape(-1, 3, 3)
+        lframes_i = lframes[1].index_select(edge_index[1]).matrices.reshape(-1, 3, 3)
         edge_vec = torch.matmul(lframes_i, edge_vec.unsqueeze(-1)).squeeze(-1)
     return edge_vec
 
@@ -70,19 +71,25 @@ class RadialEmbedding(Module):
         raise NotImplementedError
 
     def forward(
-        self, pos: Union[Tensor, Tuple], edge_index: Tensor, edge_vec: Tensor = None
+        self, pos: Union[Tensor, Tuple] = None, edge_index: Tensor = None, edge_vec: Tensor = None
     ) -> Tensor:
         """Forward pass of the RadialEmbedding module.
 
+        Either pos and edge_index or edge_vec must be provided.
+
         Args:
-            pos (Union[Tensor, Tuple]): The position tensor or tuple.
-            edge_index (Tensor): The edge index tensor.
+            pos (Union[Tensor, Tuple], optional): The position tensor or tuple.
+            edge_index (Tensor, optional): The edge index tensor.
             edge_vec (Tensor, optional): The edge vector tensor. Defaults to None.
 
         Returns:
             Tensor: The computed embedding.
         """
         if edge_vec is None:
+            assert pos is not None, "pos must be provided if edge_vec is not provided."
+            assert (
+                edge_index is not None
+            ), "edge_index must be provided if edge_vec is not provided."
             edge_vec = compute_edge_vec(pos, edge_index)
 
         # calculate the norm of the distance vector
@@ -112,17 +119,26 @@ class BesselEmbedding(RadialEmbedding):
             Computes the embedding for the given norm.
     """
 
-    def __init__(self, num_radial: int, cutoff: float, envelope_exponent: int):
+    def __init__(
+        self,
+        num_frequencies: int,
+        cutoff: float = None,
+        envelope_exponent: int = None,
+        flip_negative: bool = False,
+    ):
         super().__init__()
 
-        self.num_radial = num_radial
-        self.inv_cutoff = 1 / cutoff
-        self.norm_const = (2 * self.inv_cutoff) ** 0.5
-        self.out_dim = num_radial
+        self.out_dim = num_frequencies
+        self.num_frequencies = num_frequencies
+        self.flip_negative = flip_negative
 
-        self.envelope = Envelope(envelope_exponent)
+        self.envelope = None
+        if cutoff is not None and envelope_exponent is not None:
+            self.inv_cutoff = 1 / cutoff
+            self.norm_const = (2 * self.inv_cutoff) ** 0.5
+            self.envelope = Envelope(envelope_exponent)
 
-        data = torch.pi * torch.arange(1, num_radial + 1)
+        data = torch.pi * torch.arange(1, num_frequencies + 1)
         # Initialize frequencies at canonical positions
         self.frequencies = torch.nn.Parameter(
             data=data,
@@ -138,15 +154,47 @@ class BesselEmbedding(RadialEmbedding):
         Returns:
             Tensor: The computed embedding.
         """
-        norm_scaled = norm * self.inv_cutoff
-        norm_env = self.envelope(norm_scaled)
+        if self.envelope is None:
+            out = torch.sin(norm * self.frequencies) / (norm + 1e-9)
+        else:
+            norm_scaled = norm * self.inv_cutoff
+            norm_env = self.envelope(norm_scaled)
+            out = (
+                norm_env
+                * self.norm_const
+                * torch.sin(norm_scaled * self.frequencies)
+                / (norm + 1e-9)
+            )
 
-        return (
-            norm_env * self.norm_const * torch.sin(norm_scaled * self.frequencies) / (norm + 1e-9)
-        )
+        if self.flip_negative:
+            out = torch.where(norm < 0, -out, out)
+
+        return out
 
 
-class GaussianEmbedding(Module):
+def get_gaussian_width(
+    num_gaussians: int, maximum_initial_radius: float, intersection: float = 0.5
+) -> float:
+    """Calculate the width of the gaussian functions based on the number of gaussians and the
+    maximum initial radius of the gaussians such that neighboring gaussians have an specified
+    intersection.
+
+    Args:
+        num_gaussians (int): Number of gaussian functions on which the edge features are calculated.
+        maximum_initial_radius (float): The maximum initial radius of the gaussians.
+        intersection (float, optional): The intersection of the gaussians. Defaults to 0.5.
+
+    Returns:
+        float: The width of the gaussian functions.
+    """
+    if num_gaussians == 1:
+        return maximum_initial_radius / np.sqrt(-2 * np.log(intersection))
+    else:
+        diff = maximum_initial_radius / (num_gaussians - 1)
+        return diff / np.sqrt(-8 * np.log(intersection))
+
+
+class GaussianEmbedding(RadialEmbedding):
     """Module to calculate the edge attributes based on gaussian basis functions and the distance
     between nodes."""
 
@@ -154,7 +202,8 @@ class GaussianEmbedding(Module):
         self,
         num_gaussians: int = 10,
         normalized: bool = False,
-        maximum_initial_radius: float = 5.0,
+        maximum_initial_range: float = 5.0,
+        minimum_initial_range: float = 0.0,
         is_learnable: bool = True,
         intersection: float = 0.5,
         gaussian_width: float = None,
@@ -167,6 +216,10 @@ class GaussianEmbedding(Module):
             num_gaussians (int, optional): Number of gaussian functions on which the edge features are calculated.
                 Defaults to 10.
             normalized (bool, optional): Defines if the gaussians should be normalized. Defaults to False.
+            maximum_initial_radius (float, optional): The maximum initial radius of the gaussians. Defaults to 5.0.
+            is_learnable (bool, optional): Defines if the parameters of the gaussians should be learnable. Defaults to True.
+            intersection (float, optional): The intersection of the gaussians, used to compute the width if not specified. Defaults to 0.5.
+            gaussian_width (float, optional): The width of the gaussian functions. Defaults to None.
         """
         super().__init__()
 
@@ -174,43 +227,27 @@ class GaussianEmbedding(Module):
         self.out_dim = num_gaussians
 
         if gaussian_width is None:
-            gaussian_width = self.get_gaussian_width(
-                num_gaussians, maximum_initial_radius, intersection=intersection
+            gaussian_width = get_gaussian_width(
+                num_gaussians=num_gaussians,
+                maximum_initial_radius=maximum_initial_range - minimum_initial_range,
+                intersection=intersection,
             )
         if is_learnable:
             # use linspace to create the shifts of the gaussians in the range of 0 to 3
             # we use 3 as an initialisation because the bond length of c-c is 3 Bohr
             self.shift = torch.nn.Parameter(
-                torch.linspace(0, maximum_initial_radius, num_gaussians)
+                torch.linspace(minimum_initial_range, maximum_initial_range, num_gaussians)
             )
             # initialisation of the scale parameter as 1
             self.scale = torch.nn.Parameter(torch.ones(num_gaussians) * gaussian_width)
         else:
             self.register_buffer("scale", torch.ones(num_gaussians) * gaussian_width)
-            self.register_buffer("shift", torch.linspace(0, maximum_initial_radius, num_gaussians))
+            self.register_buffer(
+                "shift",
+                torch.linspace(minimum_initial_range, maximum_initial_range, num_gaussians),
+            )
 
         self.normalized = normalized
-
-    def get_gaussian_width(
-        self, num_gaussians, maximum_initial_radius, intersection: float = 0.5
-    ) -> float:
-        """Calculate the width of the gaussian functions based on the number of gaussians and the
-        maximum initial radius of the gaussians such that neighboring gaussians have an specified
-        intersection.
-
-        Args:
-            num_gaussians (int): Number of gaussian functions on which the edge features are calculated.
-            maximum_initial_radius (float): The maximum initial radius of the gaussians.
-            intersection (float, optional): The intersection of the gaussians. Defaults to 0.5.
-
-        Returns:
-            float: The width of the gaussian functions.
-        """
-        if num_gaussians == 1:
-            return maximum_initial_radius / np.sqrt(-2 * np.log(intersection))
-        else:
-            diff = maximum_initial_radius / (num_gaussians - 1)
-            return diff / np.sqrt(-8 * np.log(intersection))
 
     def compute_embedding(self, norm: Tensor) -> Tensor:
         """Calculates the embedding of the edge attributes based on the gaussian functions.
@@ -258,3 +295,60 @@ class TrivialRadialEmbedding(RadialEmbedding):
             Tensor: The computed embedding, which is the same as the input tensor.
         """
         return norm
+
+
+if __name__ == "__main__":
+    from e3nn.o3 import rand_matrix
+
+    pos = torch.rand(10, 3)
+    edge_index = torch.randint(0, 10, (2, 20))
+    lframes = rand_matrix(10)
+    parity_mask = torch.randint(0, 2, (10,), dtype=torch.bool)
+    lframes[parity_mask, :, 0] *= -1
+    lframes = LFrames(matrices=lframes)
+
+    edge_vec1 = compute_edge_vec(pos, edge_index)
+    edge_vec2 = compute_edge_vec(pos, edge_index, lframes)
+
+    edge_vec2_back = []
+    lframes_i = lframes.index_select(edge_index[1]).matrices.reshape(-1, 3, 3)
+    for i in range(20):
+        edge_vec2_back.append(lframes_i[i].T @ edge_vec2[i])  # rotate back
+    edge_vec2_back = torch.stack(edge_vec2_back)
+    assert torch.allclose(edge_vec1, edge_vec2_back)
+
+    # test gaussian radial embedding
+    gauss = GaussianEmbedding()
+    assert torch.allclose(gauss(edge_vec=edge_vec1), gauss(edge_vec=edge_vec2))
+    assert torch.allclose(
+        gauss(pos=pos, edge_index=edge_index), gauss(pos=(pos, pos), edge_index=edge_index)
+    )
+    assert torch.allclose(gauss(pos=pos, edge_index=edge_index), gauss(edge_vec=edge_vec1))
+
+    # test bessel radial embedding
+    bessel = BesselEmbedding(num_frequencies=10, cutoff=10.0, envelope_exponent=2)
+    assert torch.allclose(bessel(edge_vec=edge_vec1), bessel(edge_vec=edge_vec2), atol=1e-6)
+    assert torch.allclose(
+        bessel(pos=pos, edge_index=edge_index),
+        bessel(pos=(pos, pos), edge_index=edge_index),
+        atol=1e-6,
+    )
+    assert torch.allclose(
+        bessel(pos=pos, edge_index=edge_index), bessel(edge_vec=edge_vec1), atol=1e-6
+    )
+
+    # test flip negative:
+    out1 = bessel(edge_vec=torch.tensor([[1.0, 2, 3], [-1, -2, -3], [4, 5, 6], [4, -5, 6]]))
+    print(out1)
+    assert torch.allclose(out1[0], -out1[1])
+    assert torch.allclose(out1[2][1], -out1[3][1])
+    assert torch.allclose(out1[2][0], out1[3][0])
+    assert torch.allclose(out1[2][2], out1[3][2])
+    print(out1)
+
+    bessel.flip_negative = False
+    out2 = bessel(edge_vec=torch.tensor([[1.0, 2, 3], [-1, -2, -3], [4, 5, 6], [4, -5, 6]]))
+    assert torch.allclose(out2[0], out2[1])
+    assert torch.allclose(out2[2], out2[3])
+
+    print("All tests passed!")
