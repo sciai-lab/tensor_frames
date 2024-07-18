@@ -111,7 +111,22 @@ def gram_schmidt(
 
         z_zero_mask = (z_length < eps).squeeze()
 
-        assert not torch.any(z_zero_mask), "z_axis has zero length"
+        if torch.any(z_zero_mask):
+            if exceptional_choice == "random":
+                flip_vec = torch.sign(torch.rand(z_zero_mask.sum()) - 0.5).to(device=x_axis.device)
+
+                crossvec = torch.linalg.cross(x_axis[z_zero_mask], y_axis[z_zero_mask], dim=-1)
+
+                flipped_vec = torch.einsum("i,ij->ij", flip_vec, crossvec)
+
+                z_axis[z_zero_mask] = flipped_vec
+
+                z_length = torch.linalg.norm(z_axis, dim=-1, keepdim=True)
+            elif exceptional_choice == "zero":
+                z_axis = torch.where(z_zero_mask[:, None], torch.zeros_like(z_axis), z_axis)
+                z_length = torch.where(z_zero_mask[:, None], eps, z_length)
+            else:
+                raise ValueError(f"exceptional_choice {exceptional_choice} not recognized")
 
         lframes = torch.stack([x_axis, y_axis, z_axis], dim=-2)
 
