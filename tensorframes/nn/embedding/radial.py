@@ -6,7 +6,6 @@ from torch import Tensor
 from torch.nn import Module
 
 from tensorframes.lframes import LFrames
-from tensorframes.nn.envelope import Envelope
 
 
 def compute_edge_vec(
@@ -123,20 +122,21 @@ class BesselEmbedding(RadialEmbedding):
         self,
         num_frequencies: int,
         cutoff: float = None,
-        envelope_exponent: int = None,
+        envelope: Module = None,
         flip_negative: bool = False,
     ):
         super().__init__()
 
         self.out_dim = num_frequencies
         self.num_frequencies = num_frequencies
+        self.envelope = envelope
         self.flip_negative = flip_negative
 
-        self.envelope = None
-        if cutoff is not None and envelope_exponent is not None:
+        if cutoff is not None and self.envelope is not None:
             self.inv_cutoff = 1 / cutoff
             self.norm_const = (2 * self.inv_cutoff) ** 0.5
-            self.envelope = Envelope(envelope_exponent)
+        else:
+            self.envelope = None
 
         data = torch.pi * torch.arange(1, num_frequencies + 1)
         # Initialize frequencies at canonical positions
