@@ -16,12 +16,12 @@ class LearnedGramSchmidtLFrames(MessagePassing):
 
     def __init__(
         self,
-        scalar_input_dim: int,
+        even_scalar_input_dim: int,
         radial_dim: int,
         hidden_channels: list[int],
         predict_o3: bool = True,
         cutoff: float | None = None,
-        edge_dim: int = 0,
+        even_scalar_edge_dim: int = 0,
         concat_receiver: bool = True,
         exceptional_choice: str = "random",
         anchor_z_axis: bool = False,
@@ -31,12 +31,12 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         """Initialize the LearnedGramSchmidtLFrames model.
 
         Args:
-            scalar_input_dim (int): The dimension of the scalar input.
+            even_scalar_input_dim (int): The dimension of the scalar input.
             radial_dim (int): The dimension of the radial input.
             hidden_channels (list[int]): A list of integers representing the hidden channels in the MLP.
             predict_o3 (bool, optional): Whether to predict O3. Defaults to True.
             cutoff (float | None, optional): The cutoff value. Defaults to None. If not None, the envelope module is used.
-            edge_dim (int, optional): The dimension of the edge input. Defaults to 0.
+            even_scalar_edge_dim (int, optional): The dimension of the edge input. Defaults to 0.
             concat_receiver (bool, optional): Whether to concatenate the receiver input to the mlp input. Defaults to True.
             exceptional_choice (str, optional): The exceptional choice, which is used by gram schmidt. Defaults to "random".
             anchor_z_axis (bool, optional): Whether to anchor the z-axis. Defaults to False.
@@ -44,7 +44,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             **mlp_kwargs (dict): Additional keyword arguments for the MLP.
         """
         super().__init__()
-        self.scalar_input_dim = scalar_input_dim
+        self.even_scalar_input_dim = even_scalar_input_dim
         self.radial_dim = radial_dim
 
         self.hidden_channels = hidden_channels.copy()
@@ -73,12 +73,12 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             self.envelope = envelope
 
         if concat_receiver:
-            in_channels = self.scalar_input_dim * 2 + self.radial_dim
+            in_channels = self.even_scalar_input_dim * 2 + self.radial_dim
         else:
-            in_channels = self.scalar_input_dim + self.radial_dim
+            in_channels = self.even_scalar_input_dim + self.radial_dim
 
-        self.edge_dim = edge_dim
-        in_channels += edge_dim
+        self.even_scalar_edge_dim = even_scalar_edge_dim
+        in_channels += even_scalar_edge_dim
 
         self.mlp = MLP(
             in_channels=in_channels,
@@ -92,11 +92,11 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         """Forward pass of the learning_lframes module.
 
         Args:
-            x (Tensor): Input tensor.
+            x (Tensor): Input tensor, can only be even scalars for the layer to be equivariant
             radial (Tensor): Radial tensor.
             pos (Tensor): Position tensor.
             edge_index (Tensor): Edge index tensor.
-            edge_attr (Tensor): Edge attribute tensor.
+            edge_attr (Tensor): Edge attribute tensor, can only be even scalars for the layer to be equivariant
 
         Returns:
             LFrames: The local frames object containing the local frames.
@@ -135,7 +135,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         """Computes the message passed between two nodes in the graph.
 
         Args:
-            x_i (Tensor): The input features of node i.
+            x_i (Tensor): The input features of node is.
             x_j (Tensor): The input features of node j.
             radial (Tensor): The radial input.
             pos_i (Tensor): The position of node i.
@@ -145,7 +145,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         Returns:
             Tensor: The computed message.
         """
-        if self.scalar_input_dim == 0:
+        if self.even_scalar_input_dim == 0:
             inp = radial
         else:
             if self.concat_receiver:
@@ -153,7 +153,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             else:
                 inp = torch.cat([x_i, radial], dim=-1)
 
-        if self.edge_dim > 0:
+        if self.even_scalar_edge_dim > 0:
             inp = torch.cat([inp, edge_attr], dim=-1)
 
         mlp_out = self.mlp(inp)
