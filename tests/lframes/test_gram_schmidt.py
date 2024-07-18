@@ -47,7 +47,7 @@ def test_gram_schmidt():
         assert torch.allclose(
             torch.einsum("ij,jl->il", lframes[i], lframes[i].T), torch.eye(3), atol=1e-5
         ), "The resulting matrix is not orthogonal"
-
+        # check that the resulting matrix is right handed
         assert torch.allclose(
             torch.det(lframes[i]), torch.Tensor([1.0]), atol=1e-5
         ), "The resulting matrix is not a right handed frame"
