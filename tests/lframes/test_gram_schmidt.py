@@ -51,3 +51,25 @@ def test_gram_schmidt():
         assert torch.allclose(
             torch.det(lframes[i]), torch.Tensor([1.0]), atol=1e-5
         ), "The resulting matrix is not a right handed frame"
+
+    # This test is to check the case where the x_axis is parallel to the y_axis (basically this tests the exceptional case)
+    y_axis = x_axis + 1e-7 * (torch.rand(N, 3) + 0.5)
+
+    lframes = gram_schmidt(x_axis, y_axis)
+
+    # check shape of resulting matrix
+    assert lframes.shape == (
+        N,
+        3,
+        3,
+    ), "The resulting matrix has the wrong shape, should be (N, 3, 3)"
+
+    # check that the resulting matrix is orthogonal
+    for i in range(N):
+        assert torch.allclose(
+            torch.einsum("ij,jl->il", lframes[i], lframes[i].T), torch.eye(3), atol=1e-5
+        ), "The resulting matrix is not orthogonal"
+        # check that the resulting matrix is right handed
+        assert torch.allclose(
+            torch.det(lframes[i]), torch.Tensor([1.0]), atol=1e-5
+        ), "The resulting matrix is not a right handed frame"
