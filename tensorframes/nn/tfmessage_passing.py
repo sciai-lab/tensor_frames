@@ -11,7 +11,7 @@ class TFMessagePassing(MessagePassing):
     https://arxiv.org/abs/2405.15389v1
     """
 
-    def __init__(self, params_dict: Dict[str, Dict[str, Any]]) -> None:
+    def __init__(self, params_dict: Dict[str, Dict[str, Any]], aggr="add") -> None:
         """Initializes a new instance of the TFMessagePassing class.
 
         Args:
@@ -33,7 +33,7 @@ class TFMessagePassing(MessagePassing):
             if value["type"] is not None:
                 self.params_dict[key]["transform"] = value["rep"].get_transform_class()
 
-        super().__init__()
+        super().__init__(aggr=aggr)
 
         # Register hooks to call before propagating and before sending messages
         self.register_propagate_forward_pre_hook(self.pre_propagate_hook)
