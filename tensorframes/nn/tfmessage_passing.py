@@ -81,8 +81,15 @@ class TFMessagePassing(MessagePassing):
                 # transform the features according to the representation
                 inputs[-1][param + "_j"] = param_info["transform"](inputs[-1][param + "_j"], U)
             elif param_info["type"] == "global":
-                assert inputs[-1].get(param) is not None, f"Key {param} not in inputs"
-                # get the representation and apply it to the features
-                inputs[-1][param] = param_info["transform"](inputs[-1][param], lframes_i)
+                if inputs[-1].get(param) is not None:
+                    inputs[-1][param] = param_info["transform"](inputs[-1][param], lframes_i)
+                if inputs[-1].get(param + "_j") is not None:
+                    inputs[-1][param + "_j"] = param_info["transform"](
+                        inputs[-1][param + "_j"], lframes_j
+                    )
+                if inputs[-1].get(param + "_i") is not None:
+                    inputs[-1][param + "_i"] = param_info["transform"](
+                        inputs[-1][param + "_i"], lframes_i
+                    )
 
         return inputs

@@ -1,8 +1,9 @@
-from typing import Union
+from typing import Type, Union
 
 import torch
 from torch import Tensor
-from torch.nn import LayerNorm, Linear, Module
+from torch.nn import Linear, Module
+from torch_geometric.nn import LayerNorm
 from torch_geometric.utils import softmax
 from torchvision.ops import MLP
 
@@ -27,7 +28,7 @@ class TensorFormer(TFMessagePassing):
         hidden_layers: list[int],
         hidden_value_dim: int,
         hidden_scalar_dim: int,
-        hidden_activation: Module = torch.nn.SiLU(),
+        hidden_activation: Type[Module] = torch.nn.SiLU,
         edge_embedding_dim: int = 0,
         scalar_activation_function: Module = torch.nn.LeakyReLU(),
         value_activation_function: Module = torch.nn.SiLU(),
@@ -86,20 +87,20 @@ class TensorFormer(TFMessagePassing):
         self.act_value = value_activation_function
         self.lin_value = EdgeLinear(self.hidden_value_dim, edge_embedding_dim, hidden_value_dim)
 
-        self.lin_out = Linear(self.hidden_value_dim * num_heads, self.in_dim)
+        self.lin_out = Linear(self.hidden_value_dim * num_heads, self.dim)
 
         mlp_hidden_layers = hidden_layers.copy()
 
-        mlp_hidden_layers.append(self.out_dim)
+        mlp_hidden_layers.append(self.dim)
 
         self.mlp = MLP(
-            self.in_dim,
+            self.dim,
             mlp_hidden_layers,
             activation_layer=hidden_activation,
         )
 
-        self.layer_norm_1 = LayerNorm(self.in_dim)
-        self.layer_norm_2 = LayerNorm(self.in_dim)
+        self.layer_norm_1 = LayerNorm(self.dim)
+        self.layer_norm_2 = LayerNorm(self.dim)
 
         self.dropout_attention = torch.nn.Dropout(dropout_attention)
         self.dropout_mlp = torch.nn.Dropout(dropout_mlp)
@@ -212,7 +213,7 @@ class TensorFormer(TFMessagePassing):
 
         # scalar path
         scalars = self.scalar_norm(scalars)
-        scalars = self.relu_scalar(scalars)
+        scalars = self.act_scalar(scalars)
         scalars = self.lin_scalar(scalars)
 
         if self.softmax:
@@ -224,10 +225,43 @@ class TensorFormer(TFMessagePassing):
             alpha = self.attention_weight_dropout_layer(alpha)
 
         # value path
-        value = self.silu_value(values)
+        value = self.act_value(values)
         value = self.lin_value(value, edge_embedding)
 
         out = value * alpha.view(-1, self.num_heads, 1)
         out = out.contiguous().view(-1, self.num_heads * self.hidden_value_dim) * envelope
 
         return out
+
+
+if __name__ == "__main__":
+    # test the TensorFormer model
+    tensor_reps = TensorReps("10x0n+5x1n+2x2n")
+    num_heads = 4
+    hidden_layers = [128, 64]
+    hidden_value_dim = 64
+    hidden_scalar_dim = 64
+    edge_embedding_dim = 32
+
+    model = TensorFormer(
+        tensor_reps=tensor_reps,
+        num_heads=num_heads,
+        hidden_layers=hidden_layers,
+        hidden_value_dim=hidden_value_dim,
+        hidden_scalar_dim=hidden_scalar_dim,
+        edge_embedding_dim=edge_embedding_dim,
+    )
+
+    # create test data
+    x = torch.randn(10, tensor_reps.dim)
+    pos = torch.randn(10, 3)
+    edge_index = torch.tensor([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]])
+    edge_embedding = torch.randn(10, edge_embedding_dim)
+    import e3nn
+
+    lframes_mat = e3nn.o3.rand_matrix(10)
+    lframes = LFrames(lframes_mat)
+
+    # forward pass
+    out = model(x, lframes, edge_index, pos, edge_embedding)
+    print(out.shape)
