@@ -45,10 +45,10 @@ class TFMessagePassing(MessagePassing):
 
         Args:
             module (Any): The module object.
-            inputs (Dict[str, Any]): The inputs dictionary.
+            inputs (tuple): The inputs dictionary.
 
         Returns:
-            Dict[str, Any]: The modified inputs dictionary.
+            tuple: The modified inputs dictionary.
         """
         assert inputs[-1].get("lframes") is not None, "lframes are not in the propagate inputs"
 
@@ -63,10 +63,10 @@ class TFMessagePassing(MessagePassing):
 
         Args:
             module (Any): The module object.
-            inputs (Dict[str, Any]): The inputs dictionary.
+            inputs (tuple): The inputs dictionary.
 
         Returns:
-            Dict[str, Any]: The modified inputs dictionary.
+            tuple: The modified inputs dictionary.
         """
 
         # calculate lframes_i, lframes_j and the U matrix
