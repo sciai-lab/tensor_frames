@@ -379,11 +379,13 @@ class IrrepsTransform(Module):
             Tensor: The transformed coefficients.
         """
 
+        output_coeffs = coeffs.clone()
+
         if isinstance(basis_change, torch.Tensor):
             basis_change = LFrames(basis_change)
 
         if self.irreps.dim == 0:
-            return coeffs
+            return output_coeffs
 
         N = coeffs.shape[0]
 
@@ -400,11 +402,11 @@ class IrrepsTransform(Module):
             J_matrix = getattr(self, f"J_matrix_{l}")
             wigner = basis_change.wigner_D(l, J=J_matrix).transpose(-1, -2)
             if self.is_sorted:
-                coeffs[:, start_idx:end_idx] = torch.matmul(l_tensor, wigner).flatten(1)
+                output_coeffs[:, start_idx:end_idx] = torch.matmul(l_tensor, wigner).flatten(1)
             else:
-                coeffs[:, l_mask] = torch.matmul(l_tensor, wigner).flatten(1)
+                output_coeffs[:, l_mask] = torch.matmul(l_tensor, wigner).flatten(1)
 
         is_det_neg = basis_change.det < 0
-        coeffs[is_det_neg] = coeffs[is_det_neg] * self.odd_tensor
+        output_coeffs[is_det_neg] = output_coeffs[is_det_neg] * self.odd_tensor
 
-        return coeffs
+        return output_coeffs
