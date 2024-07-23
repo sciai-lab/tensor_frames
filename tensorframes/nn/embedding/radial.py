@@ -9,7 +9,7 @@ from tensorframes.lframes import LFrames
 
 
 def compute_edge_vec(
-    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple] = None
+    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple] | None = None
 ) -> Tensor:
     """Compute the edge vectors between node positions and rotates them into the local frames of
     the receiving nodes.
@@ -53,10 +53,14 @@ class RadialEmbedding(Module):
             Forward pass of the RadialEmbedding module.
     """
 
-    def __init__(self):
-        """Initialises the RadialEmbedding module."""
+    def __init__(self, out_dim: int):
+        """Initializes a RadialEmbeddingLayer object.
+
+        Args:
+            out_dim (int): The output dimension of the embedding layer.
+        """
         super().__init__()
-        self.out_dim = None  # should be set in the subclass
+        self.out_dim = out_dim
 
     def compute_embedding(self, norm: Tensor) -> Tensor:
         """Computes the embedding based on the given norm.
@@ -70,7 +74,10 @@ class RadialEmbedding(Module):
         raise NotImplementedError
 
     def forward(
-        self, pos: Union[Tensor, Tuple] = None, edge_index: Tensor = None, edge_vec: Tensor = None
+        self,
+        pos: Union[Tensor, Tuple] | None = None,
+        edge_index: Tensor | None = None,
+        edge_vec: Tensor | None = None,
     ) -> Tensor:
         """Forward pass of the RadialEmbedding module.
 
@@ -98,36 +105,25 @@ class RadialEmbedding(Module):
 
 
 class BesselEmbedding(RadialEmbedding):
-    """BesselEmbedding class represents a radial embedding using Bessel functions.
-
-    Args:
-        num_radial (int): The number of radial basis functions.
-        cutoff (float): The cutoff radius for the radial basis functions.
-        envelope_exponent (int): The exponent for the envelope function.
-
-    Attributes:
-        num_radial (int): The number of radial basis functions.
-        inv_cutoff (float): The inverse of the cutoff radius.
-        norm_const (float): The normalization constant.
-        out_dim (int): The output dimension of the embedding.
-        envelope (Envelope): The envelope function.
-        frequencies (torch.nn.Parameter): The frequencies of the radial basis functions.
-
-    Methods:
-        compute_embedding(norm: Tensor) -> Tensor:
-            Computes the embedding for the given norm.
-    """
+    """BesselEmbedding class represents a radial embedding using Bessel functions."""
 
     def __init__(
         self,
         num_frequencies: int,
-        cutoff: float = None,
-        envelope: Module = None,
+        cutoff: float | None = None,
+        envelope: Module | None = None,
         flip_negative: bool = False,
-    ):
-        super().__init__()
+    ) -> None:
+        """Initialize the RadialEmbedding layer.
 
-        self.out_dim = num_frequencies
+        Args:
+            num_frequencies (int): The number of frequencies to use.
+            cutoff (float, optional): The cutoff value for the envelope function. Defaults to None.
+            envelope (Module, optional): The envelope function to use. Defaults to None.
+            flip_negative (bool, optional): Whether to flip the negative frequencies. Defaults to False.
+        """
+        super().__init__(out_dim=num_frequencies)
+
         self.num_frequencies = num_frequencies
         self.envelope = envelope
         self.flip_negative = flip_negative
@@ -206,7 +202,7 @@ class GaussianEmbedding(RadialEmbedding):
         minimum_initial_range: float = 0.0,
         is_learnable: bool = True,
         intersection: float = 0.5,
-        gaussian_width: float = None,
+        gaussian_width: float | None = None,
     ) -> None:
         """Initialises the class. You can specify the number of gaussians and if the gaussians
         should be normalized. This function initialises the shift and scale parameters of the
@@ -219,12 +215,11 @@ class GaussianEmbedding(RadialEmbedding):
             maximum_initial_radius (float, optional): The maximum initial radius of the gaussians. Defaults to 5.0.
             is_learnable (bool, optional): Defines if the parameters of the gaussians should be learnable. Defaults to True.
             intersection (float, optional): The intersection of the gaussians, used to compute the width if not specified. Defaults to 0.5.
-            gaussian_width (float, optional): The width of the gaussian functions. Defaults to None.
+            gaussian_width (float, optional): The width of the gaussian functions. If None it calculates the gaussian width. Defaults to None.
         """
-        super().__init__()
+        super().__init__(out_dim=num_gaussians)
 
         self.num_gaussians = num_gaussians
-        self.out_dim = num_gaussians
 
         if gaussian_width is None:
             gaussian_width = get_gaussian_width(
@@ -280,10 +275,9 @@ class TrivialRadialEmbedding(RadialEmbedding):
     """A trivial radial embedding class that returns the norm of an edge vector as the
     embedding."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialises the class."""
-        super().__init__()
-        self.out_dim = 1
+        super().__init__(out_dim=1)
 
     def compute_embedding(self, norm: Tensor) -> Tensor:
         """Computes the embedding for the given input tensor.
