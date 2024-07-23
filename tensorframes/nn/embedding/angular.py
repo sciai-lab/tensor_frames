@@ -12,8 +12,12 @@ from tensorframes.nn.embedding.radial import compute_edge_vec
 class AngularEmbedding(torch.nn.Module):
     """Angular Embedding module."""
 
-    def __init__(self, out_dim: int):
-        """Init AngularEmbedding module."""
+    def __init__(self, out_dim: int) -> None:
+        """Initializes an instance of the AngularEmbedding class.
+
+        Args:
+            out_dim (int): The output dimension of the embedding.
+        """
         super().__init__()
         self.out_dim = out_dim  # should be set in the subclass
 
@@ -62,7 +66,7 @@ class AngularEmbedding(torch.nn.Module):
 class TrivialAngularEmbedding(AngularEmbedding):
     """A trivial implementation of the AngularEmbedding class."""
 
-    def __init__(self, normalize: bool = True):
+    def __init__(self, normalize: bool = True) -> None:
         """Init TrivialAngularEmbedding module.
 
         Args:
@@ -95,7 +99,7 @@ class TrivialAngularEmbedding(AngularEmbedding):
 class SphericalHarmonicsEmbedding(AngularEmbedding):
     """Spherical Harmonics Embedding module."""
 
-    def __init__(self, lmax: int = 2, normalization: str = "norm"):
+    def __init__(self, lmax: int = 2, normalization: str = "norm") -> None:
         """Init Spherical Harmonics Embedding module.
 
         Args:
@@ -121,7 +125,7 @@ class SphericalHarmonicsEmbedding(AngularEmbedding):
         )[..., 1:]
 
 
-def fibonacci_sphere(samples=1000):
+def fibonacci_sphere(samples: int = 1000) -> list:
     """Generate points on a sphere using the Fibonacci sphere algorithm.
 
     Args:
@@ -148,15 +152,18 @@ def fibonacci_sphere(samples=1000):
 
 
 class GaussianOnSphereEmbedding(AngularEmbedding):
-    """A class representing a Gaussian embedding on a sphere.
+    """A class representing a Gaussian embedding on a sphere."""
 
-    Args:
-        num_angular (int): The number of equi-spaced points on the sphere.
-        normalized (bool, optional): Whether to normalize the gaussians. Defaults to True.
-        is_learnable (bool, optional): Whether the gaussian widths are learnable parameters. Defaults to True.
-    """
+    def __init__(
+        self, num_angular: int, normalized: bool = True, is_learnable: bool = True
+    ) -> None:
+        """Initialize the AngularEmbedding layer.
 
-    def __init__(self, num_angular: int, normalized: bool = True, is_learnable: bool = True):
+        Args:
+            num_angular (int): The number of angular points to generate on the sphere.
+            normalized (bool, optional): Whether to normalize the angular embeddings. Defaults to True.
+            is_learnable (bool, optional): Whether the angular embeddings are learnable parameters. Defaults to True.
+        """
         super().__init__(out_dim=num_angular)
         self.normalized = normalized
 
