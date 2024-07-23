@@ -7,7 +7,11 @@ from tensorframes.nn.embedding.axial import (
     AxisWiseEmbeddingFromRadial,
     AxisWiseGaussianEmbedding,
 )
-from tensorframes.nn.embedding.radial import compute_edge_vec
+from tensorframes.nn.embedding.radial import (
+    BesselEmbedding,
+    GaussianEmbedding,
+    compute_edge_vec,
+)
 
 
 def test_axial():
@@ -47,12 +51,11 @@ def test_axial():
 
     # # test axiswise from radial:
     axis_radial_gauss = AxisWiseEmbeddingFromRadial(
-        radial_type="gaussian",
         normalize_edge_vec=True,
         axis_specific_radial=False,
-        num_gaussians=10,
-        maximum_initial_range=1.0,
-        minimum_initial_range=-1.0,
+        radial_embedding=GaussianEmbedding(
+            num_gaussians=10, maximum_initial_range=1.0, minimum_initial_range=-1.0
+        ),
     )
     assert (
         axis_radial_gauss(edge_vec=edge_vec).shape
@@ -72,12 +75,11 @@ def test_axial():
 
     # check the axis specific radial:
     specific_axis_radial_gauss = AxisWiseEmbeddingFromRadial(
-        radial_type="gaussian",
         normalize_edge_vec=True,
         axis_specific_radial=True,
-        num_gaussians=10,
-        maximum_initial_range=1.0,
-        minimum_initial_range=-1.0,
+        radial_embedding=GaussianEmbedding(
+            num_gaussians=10, maximum_initial_range=1.0, minimum_initial_range=-1.0
+        ),
     )
     assert (
         specific_axis_radial_gauss(edge_vec=edge_vec).shape
@@ -97,10 +99,9 @@ def test_axial():
 
     # test axiswise from radial using bessel:
     axis_radial_bessel = AxisWiseEmbeddingFromRadial(
-        radial_type="bessel",
         normalize_edge_vec=True,
         axis_specific_radial=False,
-        num_frequencies=10,
+        radial_embedding=BesselEmbedding(num_frequencies=10, flip_negative=True),
     )
     assert (
         axis_radial_bessel(edge_vec=edge_vec).shape
@@ -120,10 +121,9 @@ def test_axial():
 
     # check the axis specific radial:
     specific_axis_radial_bessel = AxisWiseEmbeddingFromRadial(
-        radial_type="bessel",
         normalize_edge_vec=True,
         axis_specific_radial=True,
-        num_frequencies=10,
+        radial_embedding=BesselEmbedding(num_frequencies=10, flip_negative=True),
     )
     assert (
         specific_axis_radial_bessel(edge_vec=edge_vec).shape

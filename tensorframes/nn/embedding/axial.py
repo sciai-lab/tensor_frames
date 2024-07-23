@@ -1,13 +1,11 @@
+import copy
+
 import numpy as np
 import torch
 from torch import Tensor
 
 from tensorframes.nn.embedding.angular import AngularEmbedding
-from tensorframes.nn.embedding.radial import (
-    BesselEmbedding,
-    GaussianEmbedding,
-    get_gaussian_width,
-)
+from tensorframes.nn.embedding.radial import TrivialRadialEmbedding, get_gaussian_width
 
 
 class AxisWiseEmbeddingFromRadial(AngularEmbedding):
@@ -16,7 +14,7 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
     Attributes:
         normalize_edge_vec (bool): Whether to normalize the edge vectors.
         axis_specific_radial (bool): Whether to use axis-specific radial embeddings.
-        radial_modules (torch.nn.ModuleList): List of radial embedding modules.
+        radial_modules (Union[torch.nn.ModuleList, torch.nn.Module]): List of radial embedding modules.
         spatial_dim (int): The spatial dimension.
         out_dim (int): The output dimension of the embedding.
 
@@ -26,11 +24,10 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
 
     def __init__(
         self,
-        radial_type: str,
         normalize_edge_vec: bool = True,
         axis_specific_radial: bool = False,
         spatial_dim=3,
-        **radial_kwargs
+        radial_embedding: torch.nn.Module = TrivialRadialEmbedding(),
     ):
         """Initialize the AxisWiseEmbeddingFromRadial module.
 
@@ -41,39 +38,21 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
             spatial_dim (int, optional): The spatial dimension. Defaults to 3.
             **radial_kwargs: Additional keyword arguments to be passed to the radial embedding modules.
         """
+        super().__init__(out_dim=radial_embedding.out_dim * spatial_dim)
 
-        super().__init__()
         self.normalize_edge_vec = normalize_edge_vec
         self.axis_specific_radial = axis_specific_radial
         self.radial_modules = torch.nn.ModuleList()
         self.spatial_dim = spatial_dim
 
-        # initialize the radial embedding modules:
-        self.out_dim = 0
-        if radial_type == "gaussian":
-            # set some reasonable defaults:
-            if normalize_edge_vec:
-                radial_kwargs["maximum_initial_range"] = 1.0
-                radial_kwargs["minimum_initial_range"] = -1.0
-
-            if self.axis_specific_radial:
-                for _ in range(spatial_dim):
-                    self.radial_modules.append(GaussianEmbedding(**radial_kwargs))
-                    self.out_dim += self.radial_modules[-1].out_dim
-            else:
-                self.radial_modules = GaussianEmbedding(**radial_kwargs)
-                self.out_dim = self.radial_modules.out_dim * spatial_dim
-        elif radial_type == "bessel":
-            # set some reasonable defaults:
-            radial_kwargs["flip_negative"] = True
-
-            if self.axis_specific_radial:
-                for _ in range(spatial_dim):
-                    self.radial_modules.append(BesselEmbedding(**radial_kwargs))
-                    self.out_dim += self.radial_modules[-1].out_dim
-            else:
-                self.radial_modules = BesselEmbedding(**radial_kwargs)
-                self.out_dim = self.radial_modules.out_dim * spatial_dim
+        if self.axis_specific_radial:
+            for i in range(spatial_dim):
+                if i == 0:
+                    self.radial_modules.append(radial_embedding)
+                else:
+                    self.radial_modules.append(copy.deepcopy(radial_embedding))
+        else:
+            self.radial_modules = radial_embedding
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Computes the embedding for the given edge vectors.
@@ -107,7 +86,9 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
 class AxisWiseBesselEmbedding(AngularEmbedding):
     """Embedding layer that computes axis-wise Bessel embeddings."""
 
-    def __init__(self, num_frequencies: int, dual_sided: bool = True, is_learnable: bool = True):
+    def __init__(
+        self, num_frequencies: int, dual_sided: bool = True, is_learnable: bool = True
+    ) -> None:
         """Initialize the AxisWiseBesselEmbedding module.
 
         Args:
@@ -115,7 +96,7 @@ class AxisWiseBesselEmbedding(AngularEmbedding):
             dual_sided (bool, optional): Whether to use dual-sided embeddings. Defaults to True.
             is_learnable (bool, optional): Whether the frequencies are learnable parameters. Defaults to True.
         """
-        super().__init__()
+        super().__init__(out_dim=num_frequencies * 3)
 
         self.num_frequencies = num_frequencies
 
@@ -130,8 +111,6 @@ class AxisWiseBesselEmbedding(AngularEmbedding):
             self.frequencies = torch.nn.Parameter(data=data)
         else:
             self.register_buffer("frequencies", data)
-
-        self.out_dim = num_frequencies * 3
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Computes the embedding for the given edge vector.
@@ -197,10 +176,9 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
             intersection (float): The intersection parameter for calculating the Gaussian width.
             gaussian_width (float, optional): The width of the Gaussians. If not provided, it is calculated based on the other parameters.
         """
-        super().__init__()
+        super().__init__(out_dim=num_gaussians * 3)
 
         self.num_gaussians = num_gaussians
-        self.out_dim = num_gaussians * 3
         minimum_initial_range = (
             -maximum_initial_range if minimum_initial_range is None else minimum_initial_range
         )
