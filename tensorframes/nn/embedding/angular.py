@@ -12,10 +12,10 @@ from tensorframes.nn.embedding.radial import compute_edge_vec
 class AngularEmbedding(torch.nn.Module):
     """Angular Embedding module."""
 
-    def __init__(self):
+    def __init__(self, out_dim: int):
         """Init AngularEmbedding module."""
         super().__init__()
-        self.out_dim = None  # should be set in the subclass
+        self.out_dim = out_dim  # should be set in the subclass
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Computes the embedding for the given edge vector.
@@ -30,10 +30,10 @@ class AngularEmbedding(torch.nn.Module):
 
     def forward(
         self,
-        pos: Union[Tensor, Tuple] = None,
-        edge_index: Tensor = None,
-        lframes: LFrames = None,
-        edge_vec: Tensor = None,
+        pos: Union[Tensor, Tuple] | None = None,
+        edge_index: Tensor | None = None,
+        lframes: LFrames | None = None,
+        edge_vec: Tensor | None = None,
     ) -> Tensor:
         """Forward pass of the AngularEmbedding module.
 
@@ -72,9 +72,8 @@ class TrivialAngularEmbedding(AngularEmbedding):
             normalize (bool): Indicates whether to normalize the computed embeddings.
             out_dim (int): The output dimension of the embeddings.
         """
-        super().__init__()
+        super().__init__(out_dim=3)
         self.normalize = normalize
-        self.out_dim = 3
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Computes the embedding for the given edge vector.
@@ -104,10 +103,9 @@ class SphericalHarmonicsEmbedding(AngularEmbedding):
             normalization (str): Normalization method for the spherical harmonics. Choose from ["component", "norm", "integral"].
                 Default is "norm".
         """
-        super().__init__()
-        self.normalization = normalization
         self.irreps_sh = o3.Irreps.spherical_harmonics(lmax)
-        self.out_dim = self.irreps_sh.dim - 1  # remove the constant function
+        super().__init__(out_dim=self.irreps_sh.dim - 1)
+        self.normalization = normalization
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Compute the spherical harmonics embedding for the given edge vectors.
@@ -159,7 +157,7 @@ class GaussianOnSphereEmbedding(AngularEmbedding):
     """
 
     def __init__(self, num_angular: int, normalized: bool = True, is_learnable: bool = True):
-        super().__init__()
+        super().__init__(out_dim=num_angular)
         self.normalized = normalized
 
         # get num_angular equi spaced points on the sphere:
@@ -176,8 +174,6 @@ class GaussianOnSphereEmbedding(AngularEmbedding):
         else:
             self.register_buffer("centers", points)
             self.register_buffer("widths", widths)
-
-        self.out_dim = num_angular
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Compute the Gaussian embedding for the given edge vector.
