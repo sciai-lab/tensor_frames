@@ -7,7 +7,7 @@ from torchvision.ops import MLP
 
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.nn.embedding.envelope import EnvelopePoly
+from tensorframes.nn.envelope import EnvelopePoly
 
 
 class LearnedGramSchmidtLFrames(MessagePassing):

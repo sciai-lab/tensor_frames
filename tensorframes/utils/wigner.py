@@ -101,6 +101,9 @@ def wigner_D_with_J(
     .. note::
         The Euler angles are in the yxy convention. But in the paper and other theoretical works one uses the zyz convention. E3nn is special in that regard.
     """
+    if J.device != alpha.device:
+        J = J.to(alpha.device)
+
     Xa = _z_rot_mat(alpha, l)
     Xb = _z_rot_mat(beta, l)
     Xc = _z_rot_mat(gamma, l)

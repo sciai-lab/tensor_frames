@@ -8,7 +8,7 @@ from torch_geometric.utils import softmax
 from torchvision.ops import MLP
 
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.nn.embedding.envelope import EnvelopePoly
+from tensorframes.nn.envelope import EnvelopePoly
 from tensorframes.nn.linear import EdgeLinear, HeadedLinear
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps.irreps import Irreps

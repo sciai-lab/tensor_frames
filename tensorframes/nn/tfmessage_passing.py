@@ -85,7 +85,7 @@ class TFMessagePassing(MessagePassing):
                     inputs[-1][param] = param_info["transform"](inputs[-1][param], lframes_i)
                 if inputs[-1].get(param + "_j") is not None:
                     inputs[-1][param + "_j"] = param_info["transform"](
-                        inputs[-1][param + "_j"], lframes_j
+                        inputs[-1][param + "_j"], lframes_i
                     )
                 if inputs[-1].get(param + "_i") is not None:
                     inputs[-1][param + "_i"] = param_info["transform"](

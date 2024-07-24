@@ -364,7 +364,7 @@ class TensorRepsTransform(Module):
         ).float()
         self.register_buffer("pseudo_tensor", pseudo_tensor)
 
-    def _get_einsum_string(order: int) -> str:
+    def _get_einsum_string(self, order: int) -> str:
         """Generate the einsum string for a given order.
 
         Args:
@@ -427,8 +427,13 @@ class TensorRepsTransform(Module):
         if isinstance(basis_change, torch.Tensor):
             basis_change = LFrames(basis_change)
 
+        if self.pseudo_tensor.device != coeffs.device:
+            self.pseudo_tensor = self.pseudo_tensor.to(coeffs.device)
+
         N = coeffs.shape[0]
         rot_matrix_t = basis_change.inv
+
+        output_coeffs = coeffs.clone()
 
         largest_tensor = torch.tensor([], device=coeffs.device)
         for i, l in enumerate(self.sorted_n):
@@ -468,7 +473,7 @@ class TensorRepsTransform(Module):
 
         # all computations are now done in largest_tensor and have to be unpacked into coeffs:
         if self.is_sorted:
-            coeffs[:, self.scalar_dim :] = largest_tensor
+            output_coeffs[:, self.scalar_dim :] = largest_tensor
         else:
             n_mask_rev = self.n_masks[::-1]
             n_muls_rev = self.n_muls[::-1]
@@ -481,15 +486,15 @@ class TensorRepsTransform(Module):
                 n_mask = n_mask_rev[i]
                 l_mul = n_muls_rev[i]
                 smaller_tensor = largest_tensor[:, : l_mul * 3**n]
-                coeffs[:, n_mask] = smaller_tensor
+                output_coeffs[:, n_mask] = smaller_tensor
                 largest_tensor = largest_tensor[:, l_mul * 3**n :]
 
         # apply parity:
         # get the determinants of the rotation matrices:
         is_det_neg = basis_change.det < 0
-        coeffs[is_det_neg] = coeffs[is_det_neg] * self.pseudo_tensor
+        output_coeffs[is_det_neg] = output_coeffs[is_det_neg] * self.pseudo_tensor
 
-        return coeffs
+        return output_coeffs
 
     def transform_coeffs(self, coeffs: Tensor, basis_change: LFrames) -> Tensor:
         """Transforms the coefficients using less parallel computation.
@@ -506,7 +511,7 @@ class TensorRepsTransform(Module):
 
         output = torch.zeros_like(coeffs)
 
-        for mul_reps in self:
+        for mul_reps in self.tensor_reps:
             mul, rep = mul_reps
 
             rep_n = rep.order
@@ -559,6 +564,7 @@ class TensorRepsTransform(Module):
         Returns:
             Tensor: The transformed coefficients.
         """
+
         if self.use_parallel:
             return self.transform_coeffs_parallel(coeffs, basis_change, self.avoid_einsum)
         else:
