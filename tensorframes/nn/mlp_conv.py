@@ -187,8 +187,6 @@ class MLPConv(TFMessagePassing):
         self,
         x_i: torch.Tensor,
         x_j: torch.Tensor,
-        lframes_i: torch.Tensor,
-        lframes_j: torch.Tensor,
         batch_i: torch.Tensor,
         edge_vec: torch.Tensor,
         radial_embedding: torch.Tensor,
@@ -199,8 +197,6 @@ class MLPConv(TFMessagePassing):
         Args:
             x_i (torch.Tensor): Input node features of the sender.
             x_j (torch.Tensor): Input node features of the receiver.
-            lframes_i (torch.Tensor): Local frames of the sender.
-            lframes_j (torch.Tensor): Local frames of the receiver.
             batch_i (torch.Tensor): Batch indices of the sender.
             edge_vec (torch.Tensor): Edge vectors.
             radial_embedding (torch.Tensor): Radial embeddings.
