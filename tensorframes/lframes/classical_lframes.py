@@ -1,4 +1,5 @@
 import torch
+from e3nn.o3 import rand_matrix
 from torch import Tensor
 from torch_geometric.nn import knn
 
@@ -16,7 +17,9 @@ class ThreeNNLFrames(torch.nn.Module):
         """Initializes an instance of the ThreeNNLFrames class."""
         super().__init__()
 
-    def forward(self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None):
+    def forward(
+        self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
+    ) -> LFrames:
         """Forward pass of the LFrames module.
 
         Args:
@@ -60,3 +63,98 @@ class ThreeNNLFrames(torch.nn.Module):
         matrices = gram_schmidt(x_axis, y_axis, z_axis)
 
         return LFrames(matrices)
+
+
+class RandomLFrames(torch.nn.Module):
+    """Randomly generates local frames for each node."""
+
+    def __init__(self, flip_probability=0.5) -> None:
+        """Initialize an instance of the RandomLFrames class.
+
+        Args:
+            flip_probability (float, optional): The probability of flipping the frames. Defaults to 0.5.
+        """
+        super().__init__()
+        self.flip_probability = flip_probability
+
+    def forward(
+        self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
+    ) -> LFrames:
+        """Forward pass of the LFrames module.
+
+        Args:
+            pos (Tensor): The input tensor representing the positions.
+            idx (Tensor | None, optional): The indices to select from the input tensor. Defaults to None.
+            batch (Tensor | None, optional): The batch tensor. Defaults to None.
+
+        Returns:
+            LFrames: The output LFrames.
+        """
+        if idx is None:
+            idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
+        lframes = rand_matrix(pos[idx].shape[0], device=pos.device)
+        if self.flip_probability > 0:
+            flip_mask = torch.rand(lframes.shape[0], device=lframes.device) < self.flip_probability
+            # flip the x-axis
+            lframes[flip_mask, 0] = -lframes[flip_mask, 0]
+        return LFrames(lframes)
+
+
+class RandomGlobalLFrames(torch.nn.Module):
+    """Randomly generates a global frame."""
+
+    def __init__(self) -> None:
+        """Initializes an instance of the RandomGlobalLFrames class."""
+        super().__init__()
+
+    def forward(
+        self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
+    ) -> LFrames:
+        """Applies forward pass of the LFrames module.
+
+        Args:
+            pos (Tensor): The input tensor representing the positions.
+            idx (Tensor | None, optional): The indices tensor. Defaults to None.
+            batch (Tensor | None, optional): The batch tensor. Defaults to None.
+
+        Returns:
+            LFrames: The output LFrames tensor.
+        """
+        if idx is None:
+            idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
+
+        # randomly generate one local frame
+        matrix = rand_matrix(1, device=pos.device)
+
+        # if random number is less than 0.5, flip the x-axis
+        if torch.rand(1, device=pos.device) < 0.5:
+            matrix[0] = -matrix[0]
+
+        return LFrames(matrix.repeat(pos[idx].shape[0], 1, 1))
+
+
+class IdentityLFrames(torch.nn.Module):
+    """Identity local frames."""
+
+    def __init__(self) -> None:
+        """Initializes an instance of the ClassicalLFrames class."""
+        super().__init__()
+
+    def forward(
+        self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
+    ) -> LFrames:
+        """Forward pass of the LFrames module.
+
+        Args:
+            pos (Tensor): The input tensor of shape (N, 3) representing the positions.
+            idx (Tensor | None): The index tensor of shape (N,) representing the indices to select from `pos`.
+                If None, all indices are selected.
+            batch (Tensor | None): The batch tensor of shape (N,) representing the batch indices.
+
+        Returns:
+            LFrames: The output LFrames object.
+        """
+        if idx is None:
+            idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
+
+        return LFrames(torch.eye(3, device=pos.device).repeat(pos[idx].shape[0], 1, 1))
