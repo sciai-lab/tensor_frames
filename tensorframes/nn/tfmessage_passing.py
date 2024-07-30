@@ -2,7 +2,7 @@ from typing import Any, Dict
 
 from torch_geometric.nn import MessagePassing
 
-from tensorframes.lframes.lframes import ChangeOfLFrames
+from tensorframes.lframes import ChangeOfLFrames, LFrames
 
 
 class TFMessagePassing(MessagePassing):
@@ -11,7 +11,7 @@ class TFMessagePassing(MessagePassing):
     https://arxiv.org/abs/2405.15389v1
     """
 
-    def __init__(self, params_dict: Dict[str, Dict[str, Any]]) -> None:
+    def __init__(self, params_dict: Dict[str, Dict[str, Any]], **kwargs) -> None:
         """Initializes a new instance of the TFMessagePassing class.
 
         Args:
@@ -33,7 +33,7 @@ class TFMessagePassing(MessagePassing):
             if value["type"] is not None:
                 self.params_dict[key]["transform"] = value["rep"].get_transform_class()
 
-        super().__init__()
+        super().__init__(**kwargs)
 
         # Register hooks to call before propagating and before sending messages
         self.register_propagate_forward_pre_hook(self.pre_propagate_hook)
@@ -52,8 +52,8 @@ class TFMessagePassing(MessagePassing):
         """
         assert inputs[-1].get("lframes") is not None, "lframes are not in the propagate inputs"
 
-        self.lframes = inputs[-1].pop("lframes")
-        self.edge_index = inputs[0]
+        self._lframes = inputs[-1].pop("lframes")
+        self._edge_index = inputs[0]
 
         return inputs
 
@@ -70,8 +70,17 @@ class TFMessagePassing(MessagePassing):
         """
 
         # calculate lframes_i, lframes_j and the U matrix
-        lframes_i = self.lframes.index_select(self.edge_index[1])
-        lframes_j = self.lframes.index_select(self.edge_index[0])
+        if isinstance(self._lframes, tuple):
+            lframes_i = self._lframes[1].index_select(self._edge_index[1])
+            lframes_j = self._lframes[0].index_select(self._edge_index[0])
+        elif isinstance(self._lframes, LFrames):
+            lframes_i = self._lframes.index_select(self._edge_index[1])
+            lframes_j = self._lframes.index_select(self._edge_index[0])
+        else:
+            raise ValueError(
+                f"lframes should be either a tuple or an LFrames object but is {type(self._lframes)}"
+            )
+
         U = ChangeOfLFrames(lframes_start=lframes_j, lframes_end=lframes_i)
 
         # now go through the params_dict and get the representations and transform the features in the right way
