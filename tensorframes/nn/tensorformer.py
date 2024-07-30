@@ -30,13 +30,13 @@ class TensorFormer(TFMessagePassing):
         hidden_scalar_dim: int,
         hidden_activation: Type[Module] = torch.nn.SiLU,
         edge_embedding_dim: int = 0,
-        scalar_activation_function: Module = torch.nn.LeakyReLU(),
-        value_activation_function: Module = torch.nn.SiLU(),
+        scalar_activation_function: Module | None = None,
+        value_activation_function: Module | None = None,
         dropout_attention: float = 0.0,
         dropout_mlp: float = 0.0,
         stochastic_depth: float = 0.0,
         radial_cutoff: float = 5.0,
-        envelope: Module = EnvelopePoly(5),
+        envelope: Module | None = None,
         softmax: bool = False,
         attention_weight_dropout: float = 0.0,
     ) -> None:
@@ -63,7 +63,7 @@ class TensorFormer(TFMessagePassing):
         super().__init__(
             params_dict={
                 "x": {"type": "local", "rep": tensor_reps},
-                "pos": {"type": "global", "rep": TensorReps("1x1n")},
+                "pos": {"type": None, "rep": None},
                 "edge_embedding": {"type": None, "rep": None},
             }
         )
@@ -81,10 +81,18 @@ class TensorFormer(TFMessagePassing):
         )
 
         self.scalar_norm = LayerNorm(hidden_scalar_dim)
-        self.act_scalar = scalar_activation_function
+
+        if scalar_activation_function is None:
+            self.act_scalar = torch.nn.LeakyReLU()
+        else:
+            self.act_scalar = scalar_activation_function
+
         self.lin_scalar = HeadedLinear(hidden_scalar_dim, 1, num_heads)
 
-        self.act_value = value_activation_function
+        if value_activation_function is None:
+            self.act_value = torch.nn.SiLU()
+        else:
+            self.act_value = value_activation_function
         self.lin_value = EdgeLinear(self.hidden_value_dim, edge_embedding_dim, hidden_value_dim)
 
         self.lin_out = Linear(self.hidden_value_dim * num_heads, self.dim)
@@ -105,7 +113,11 @@ class TensorFormer(TFMessagePassing):
         self.dropout_attention = torch.nn.Dropout(dropout_attention)
         self.dropout_mlp = torch.nn.Dropout(dropout_mlp)
 
-        self.envelope = envelope
+        if envelope is None:
+            self.envelope = EnvelopePoly(5)  # envelope
+        else:
+            self.envelope = envelope
+
         self.radial_cutoff = radial_cutoff
         self.softmax = softmax
         self.silu = torch.nn.SiLU()
