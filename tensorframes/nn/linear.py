@@ -1,3 +1,5 @@
+import math
+
 import torch
 from torch import Tensor
 from torch.nn import Linear
@@ -23,10 +25,21 @@ class HeadedLinear(torch.nn.Module):
         self.out_dim = out_dim
         self.in_dim = in_dim
 
-        self.matrix = torch.nn.Parameter(torch.randn(num_heads, in_dim, out_dim))
+        self.matrix = torch.nn.Parameter(torch.empty((num_heads, in_dim, out_dim)))
 
         if bias:
-            self.bias = torch.nn.Parameter(torch.randn(num_heads, out_dim))
+            self.bias = torch.nn.Parameter(torch.empty((num_heads, out_dim)))
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Resets the parameters of the linear layer."""
+        for i in range(self.num_heads):
+            torch.nn.init.kaiming_uniform_(self.matrix[i], a=math.sqrt(5))
+            if hasattr(self, "bias"):
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.matrix[i])
+                bound = 1 / math.sqrt(fan_in)
+                torch.nn.init.uniform_(self.bias[i], -bound, bound)
 
     def forward(self, x: Tensor) -> Tensor:
         """Performs the forward pass of the linear layer. The input tensor is multiplied by the
