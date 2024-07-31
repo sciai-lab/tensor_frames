@@ -88,12 +88,12 @@ class EdgeLinear(torch.nn.Module):
         Returns:
             Tensor: The output tensor after applying the linear transformation.
         """
-        trafo_pos = self.linear1(edge_embedding)
+        edge = self.linear1(edge_embedding)
 
         if len(x.shape) == 3:
-            out = self.linear2(torch.mul(x, trafo_pos.unsqueeze(1)))
+            out = self.linear2(torch.mul(x, edge.unsqueeze(1)))
         else:
-            out = self.linear2(torch.mul(x, trafo_pos))
+            out = self.linear2(torch.mul(x, edge))
         return out
 
 

@@ -9,7 +9,7 @@ from torchvision.ops import MLP
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.envelope import EnvelopePoly
-from tensorframes.nn.linear import EdgeLinear, HeadedLinear
+from tensorframes.nn.linear import EdgeLinear, HeadedEdgeLinear, HeadedLinear
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
@@ -43,30 +43,25 @@ class TensorFormer(TFMessagePassing):
         """Initialize the TensorFormer model.
 
         Args:
-            tensor_reps (Union[TensorReps, Irreps]): The representation of the features.
+            tensor_reps (Union[TensorReps, Irreps]): The representation of the features. Is the same for input and output features, because of the skip connection.
             num_heads (int): The number of attention heads.
-            hidden_layers (list[int]): The sizes of the hidden layers in the MLP.
+            hidden_layers (list[int]): The sizes of the hidden layers in the MLP, which is evaluated after the attention step.
             hidden_value_dim (int): The dimension of the hidden value vectors.
             hidden_scalar_dim (int): The dimension of the hidden scalar vectors.
             hidden_activation (Module, optional): The activation function for the hidden layers. Defaults to torch.nn.SiLU().
-            edge_embedding_dim (int, optional): The dimension of the edge embeddings. Defaults to 0.
             scalar_activation_function (Module, optional): The activation function for the scalar vectors. Defaults to torch.nn.LeakyReLU().
+            value_activation_function (Module, optional): The activation function for the value vectors. Defaults to torch.nn.SiLU().
+            edge_embedding_dim (int, optional): The dimension of the edge embeddings. Defaults to 0.
             dropout_attention (float, optional): The dropout rate for the values after attention. Defaults to 0.0.
             dropout_mlp (float, optional): The dropout rate for MLP layers. Defaults to 0.0.
-            stochastic_depth (float, optional): The stochastic depth rate. Must be between 0 and 1. Defaults to 0.0.
+            stochastic_depth (float, optional): The stochastic depth rate. The probability that this module will be skipped. Must be between 0 and 1. Defaults to 0.0.
             radial_cutoff (float, optional): The radial cutoff distance. Defaults to 5.0.
             envelope (Module, optional): The envelope function for radial basis functions. Defaults to EnvelopePoly(5).
             softmax (bool, optional): Whether to apply softmax to attention weights if not uses SiLU. Defaults to False.
             attention_weight_dropout (float, optional): The dropout rate for attention weights. Defaults to 0.0.
         """
 
-        super().__init__(
-            params_dict={
-                "x": {"type": "local", "rep": tensor_reps},
-                "pos": {"type": None, "rep": None},
-                "edge_embedding": {"type": None, "rep": None},
-            }
-        )
+        super().__init__(params_dict={"x": {"type": "local", "rep": tensor_reps}})
 
         self.tensor_reps = tensor_reps
         self.dim = tensor_reps.dim
@@ -77,7 +72,9 @@ class TensorFormer(TFMessagePassing):
         self.hidden_scalar_dim = hidden_scalar_dim
 
         self.lin_1 = EdgeLinear(
-            self.dim * 2, edge_embedding_dim, (hidden_value_dim + hidden_scalar_dim) * num_heads
+            in_dim=self.dim * 2,
+            emb_dim=edge_embedding_dim,
+            out_dim=(hidden_value_dim + hidden_scalar_dim) * num_heads,
         )
 
         self.scalar_norm = LayerNorm(hidden_scalar_dim)
@@ -87,13 +84,19 @@ class TensorFormer(TFMessagePassing):
         else:
             self.act_scalar = scalar_activation_function
 
-        self.lin_scalar = HeadedLinear(hidden_scalar_dim, 1, num_heads)
+        self.lin_scalar = HeadedLinear(in_dim=hidden_scalar_dim, out_dim=1, num_heads=num_heads)
 
         if value_activation_function is None:
             self.act_value = torch.nn.SiLU()
         else:
             self.act_value = value_activation_function
-        self.lin_value = EdgeLinear(self.hidden_value_dim, edge_embedding_dim, hidden_value_dim)
+        # self.lin_value = EdgeLinear(self.hidden_value_dim, edge_embedding_dim, hidden_value_dim)
+        self.lin_value = HeadedEdgeLinear(
+            in_dim=self.hidden_value_dim,
+            emb_dim=edge_embedding_dim,
+            out_dim=self.hidden_value_dim,
+            num_heads=self.num_heads,
+        )
 
         self.lin_out = Linear(self.hidden_value_dim * num_heads, self.dim)
 
@@ -152,7 +155,7 @@ class TensorFormer(TFMessagePassing):
             Tensor: Output tensor.
         """
         if self.stochastic_depth > 0.0:
-            if self.training and torch.rand(1) > 1 - self.stochastic_depth:
+            if self.training and torch.rand(1) < self.stochastic_depth:
                 return x
 
         skip_x = x

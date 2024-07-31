@@ -38,7 +38,6 @@ class TensorMACE(MessagePassing):
         super().__init__(
             params_dict={
                 "x": {"type": "local", "rep": in_tensor_reps},
-                "edge_embedding": {"type": None, "rep": None},
             }
         )
         self.in_tensor_reps = in_tensor_reps
