@@ -8,6 +8,7 @@ from torchvision.ops import MLP
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.envelope import EnvelopePoly
+from tensorframes.nn.vector_neuron import VectorMLP
 
 
 class LearnedGramSchmidtLFrames(MessagePassing):
@@ -26,6 +27,9 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         exceptional_choice: str = "random",
         anchor_z_axis: bool = False,
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
+        use_vector_mlp: bool = False,
+        vector_in_channels: int = 16,
+        vector_hidden_channels: list[int] = [32],
         **mlp_kwargs: dict,
     ) -> None:
         """Initialize the LearnedGramSchmidtLFrames model.
@@ -51,17 +55,25 @@ class LearnedGramSchmidtLFrames(MessagePassing):
 
         self.predict_o3 = predict_o3
 
-        if self.predict_o3:
+        if not self.predict_o3 and anchor_z_axis:
+            raise ValueError("anchor_z_axis only works with predict_o3")
+
+        self.anchor_z_axis = anchor_z_axis
+
+        if self.predict_o3 and anchor_z_axis:
+            self.num_pred_vecs = 2
+        elif self.predict_o3:
             self.num_pred_vecs = 3
         else:
             self.num_pred_vecs = 2
 
-        self.anchor_z_axis = anchor_z_axis
-        if self.anchor_z_axis:
-            assert (
-                self.predict_o3
-            ), f"anchor_z_axis only works with predict_o3, predict_o3 = {predict_o3}"
-            self.num_pred_vecs -= 1
+        if use_vector_mlp:
+            self.vector_mlp = VectorMLP(
+                in_channels=vector_in_channels,
+                hidden_channels=vector_hidden_channels,
+                out_channels=self.num_pred_vecs,
+            )
+            self.num_pred_vecs = vector_in_channels
 
         self.hidden_channels.append(self.num_pred_vecs)
 
@@ -103,17 +115,21 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         """
         vecs = self.propagate(edge_index, x=x, radial=radial, pos=pos, edge_attr=edge_attr)
 
-        # calculate the local frames
         if self.anchor_z_axis:
             vecs = vecs.reshape(-1, self.num_pred_vecs + 1, 3)
+            z_axis = vecs[:, -1, :]
+            vecs = vecs[:, :-1, :]
         else:
             vecs = vecs.reshape(-1, self.num_pred_vecs, 3)
+
+        if hasattr(self, "vector_mlp"):
+            vecs = self.vector_mlp(vecs)
 
         if self.predict_o3:
             local_frames = gram_schmidt(
                 vecs[:, 0, :],
                 vecs[:, 1, :],
-                vecs[:, 2, :],
+                vecs[:, 2, :] if not self.anchor_z_axis else z_axis,
                 exceptional_choice=self.exceptional_choice,
             )
         else:

@@ -28,7 +28,7 @@ class VectorLinear(torch.nn.Module):
             torch.Tensor: The output tensor after applying the vector linear layer.
         """
         return self.linear(x.reshape(-1, 3, self.in_channels)).reshape(
-            -1, self.linear.out_features * 3
+            -1, self.linear.out_features, 3
         )
 
 
@@ -60,14 +60,14 @@ class VectorReLU(torch.nn.Module):
         Returns:
             torch.Tensor: The output tensor after applying the VectorReLU layer.
         """
-        k = self.U(x).reshape(-1, self.channels, 3)
-        q = self.W(x).reshape(-1, self.channels, 3)
+        k = self.U(x)
+        q = self.W(x)
 
         # calculate scalar product of k and q
-        dot_product = torch.sum(k * q, dim=-1)
+        dot_product = torch.einsum("bci,bci->bc", k, q).unsqueeze(-1)
 
         # calculate norm of k
-        norm_k = torch.linalg.norm(k, dim=-1)
+        norm_k = torch.linalg.norm(k, dim=-1).unsqueeze(-1)
 
         out = torch.where(dot_product > 0, q, q - k * dot_product / norm_k**2)
 
@@ -102,8 +102,8 @@ class VectorNorm(torch.nn.Module):
         x = x.reshape(-1, self.channels, 3)
 
         norm_x = torch.linalg.norm(x, dim=-1)
-        layer_norm = self.layer_norm(norm_x)
-        out = x * layer_norm / norm_x
+        layer_norm = self.layer_norm(norm_x).unsqueeze(-1)
+        out = x * layer_norm / norm_x.unsqueeze(-1)
 
         return out
 
