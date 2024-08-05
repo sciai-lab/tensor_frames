@@ -47,8 +47,6 @@ class VectorReLU(torch.nn.Module):
         self.U = VectorLinear(channels, channels)
         self.W = VectorLinear(channels, channels)
 
-        self.relu = torch.nn.ReLU()
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Performs the forward pass of the VectorReLU layer.
 
@@ -101,7 +99,7 @@ class VectorNorm(torch.nn.Module):
 
         norm_x = torch.linalg.norm(x, dim=-1)
         layer_norm = self.layer_norm(norm_x).unsqueeze(-1)
-        out = x * layer_norm / norm_x.unsqueeze(-1)
+        out = x * layer_norm / (norm_x.unsqueeze(-1) + 1e-6)
 
         return out
 
