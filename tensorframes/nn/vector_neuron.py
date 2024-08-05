@@ -16,20 +16,18 @@ class VectorLinear(torch.nn.Module):
         """
         super().__init__()
         self.in_channels = in_channels
-        self.linear = torch.nn.Linear(in_channels, out_channels)
+        self.linear = torch.nn.Linear(in_channels, out_channels, bias=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Performs the forward pass of the vector linear layer.
 
         Args:
-            x (torch.Tensor): The input tensor.
+            x (torch.Tensor): The input tensor. Shape: (batch_size, in_channels, 3)
 
         Returns:
             torch.Tensor: The output tensor after applying the vector linear layer.
         """
-        return self.linear(x.reshape(-1, 3, self.in_channels)).reshape(
-            -1, self.linear.out_features, 3
-        )
+        return self.linear(x.transpose(-1, -2)).transpose(-1, -2)
 
 
 class VectorReLU(torch.nn.Module):
@@ -152,3 +150,51 @@ class VectorMLP(torch.nn.Module):
         for layer in self.layers:
             x = layer(x)
         return x
+
+
+if __name__ == "__main__":
+
+    def check_rotation_invariance(mlp: torch.nn.Module, x: torch.Tensor) -> None:
+        # Pass the input tensor through the MLP
+        output = mlp(x)
+
+        from e3nn.o3 import rand_matrix
+
+        # rotate the input tensor
+        rotation_mat = rand_matrix(1).reshape(3, 3)
+
+        # rotate the input tensor
+        rotated_x = torch.einsum("ij,bcj->bci", rotation_mat, x)
+
+        # Pass the rotated input tensor through the MLP
+        rotated_output = mlp(rotated_x)
+
+        # Rotate the output tensor back
+        rotated_output = torch.einsum("ij,bcj->bci", rotation_mat.T, rotated_output)
+
+        # Check if the output tensor is the same as the original output tensor
+        print(torch.allclose(output, rotated_output, atol=1e-5))  # True
+
+    # Create a random input tensor
+
+    x = torch.randn(10, 6, 3)
+    # Create a VectorMLP object
+    mlp = VectorMLP(in_channels=6, hidden_channels=[16], out_channels=8)
+    # print(mlp)
+    print("MLP")
+    check_rotation_invariance(mlp, x)
+
+    x = torch.randn(10, 6, 3)
+    mlp = VectorLinear(6, 8)
+    print("Linear")
+    check_rotation_invariance(mlp, x)
+
+    x = torch.randn(10, 6, 3)
+    mlp = VectorReLU(6)
+    print("ReLU")
+    check_rotation_invariance(mlp, x)
+
+    x = torch.randn(10, 6, 3)
+    mlp = VectorNorm(6)
+    print("Norm")
+    check_rotation_invariance(mlp, x)

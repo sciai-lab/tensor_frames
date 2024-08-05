@@ -9,7 +9,7 @@ from torchvision.ops import MLP
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.envelope import EnvelopePoly
-from tensorframes.nn.linear import EdgeLinear, HeadedEdgeLinear, HeadedLinear
+from tensorframes.nn.linear import EdgeLinear, HeadedLinear
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
@@ -90,13 +90,13 @@ class TensorFormer(TFMessagePassing):
             self.act_value = torch.nn.SiLU()
         else:
             self.act_value = value_activation_function
-        # self.lin_value = EdgeLinear(self.hidden_value_dim, edge_embedding_dim, hidden_value_dim)
-        self.lin_value = HeadedEdgeLinear(
-            in_dim=self.hidden_value_dim,
-            emb_dim=edge_embedding_dim,
-            out_dim=self.hidden_value_dim,
-            num_heads=self.num_heads,
-        )
+        self.lin_value = EdgeLinear(self.hidden_value_dim, edge_embedding_dim, hidden_value_dim)
+        # self.lin_value = HeadedEdgeLinear(
+        #     in_dim=self.hidden_value_dim,
+        #     emb_dim=edge_embedding_dim,
+        #     out_dim=self.hidden_value_dim,
+        #     num_heads=self.num_heads,
+        # )
 
         self.lin_out = Linear(self.hidden_value_dim * num_heads, self.dim)
 
