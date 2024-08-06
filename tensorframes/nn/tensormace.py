@@ -1,3 +1,4 @@
+import math
 from typing import Union
 
 import torch
@@ -24,6 +25,7 @@ class TensorMACE(MessagePassing):
         hidden_dim: int,
         order: int = 3,
         dropout: float = 0.0,
+        bias: bool = False,
     ) -> None:
         """Initialize a TensorMace object.
 
@@ -34,6 +36,7 @@ class TensorMACE(MessagePassing):
             hidden_dim (int): The dimension of the hidden layer.
             order (int): The message passing body order. Defaults to 3.
             dropout (float, optional): The dropout rate. Defaults to 0.0.
+            bias (bool, optional): Whether to include bias terms. Defaults to False.
         """
         super().__init__(
             params_dict={
@@ -47,21 +50,47 @@ class TensorMACE(MessagePassing):
         self.edge_emb_dim = edge_emb_dim
         self.order = order
         self.hidden_dim = hidden_dim
+        self.bias = bias
 
         self.lin_1 = EdgeLinear(self.in_dim, self.edge_emb_dim, self.hidden_dim)
 
         self.param_1 = torch.nn.Parameter(
-            torch.randn(self.hidden_dim, self.order, self.hidden_dim)
+            torch.empty(self.hidden_dim, self.order, self.hidden_dim)
         )
-        self.bias_1 = torch.nn.Parameter(torch.randn(self.hidden_dim, self.order))
 
-        self.param_2 = torch.nn.Parameter(torch.randn(self.out_dim, self.order, self.hidden_dim))
-        self.bias_2 = torch.nn.Parameter(torch.randn(self.out_dim, self.order))
+        self.param_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.order, self.hidden_dim))
 
-        self.lin_skip = torch.nn.Linear(self.in_dim, self.out_dim)
+        if self.bias:
+            self.bias_1 = torch.nn.Parameter(torch.empty(self.hidden_dim, self.order))
+            self.bias_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.order))
+
+        self.lin_skip = torch.nn.Linear(self.in_dim, self.out_dim, bias=self.bias)
 
         self.layer_norm = LayerNorm(self.in_dim)
         self.dropout = torch.nn.Dropout(dropout)
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Reset the parameters of the neural network module.
+
+        Initializes the parameters of the module using the Kaiming uniform initialization for the `param_1` and `param_2` tensors.
+        If the `bias` flag is set to True, initializes the biases (`bias_1` and `bias_2`) using the uniform initialization within a specific range.
+
+        Returns:
+            None
+        """
+
+        torch.nn.init.kaiming_uniform_(self.param_1, a=math.sqrt(5))
+        torch.nn.init.kaiming_uniform_(self.param_2, a=math.sqrt(5))
+
+        if self.bias:
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.param_1)
+            bound = 1 / math.sqrt(fan_in)
+            torch.nn.init.uniform_(self.bias_1, -bound, bound)
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.param_2)
+            bound = 1 / math.sqrt(fan_in)
+            torch.nn.init.uniform_(self.bias_2, -bound, bound)
 
     def forward(
         self,
@@ -91,7 +120,9 @@ class TensorMACE(MessagePassing):
         A = self.propagate(edge_index, x=x, edge_embedding=edge_embedding, lframes=lframes)
 
         # calculate the Bs
-        tmp = torch.einsum("ih, onh -> ion", A, self.param_1) + self.bias_1
+        tmp = torch.einsum("ih, onh -> ion", A, self.param_1)
+        if self.bias:
+            tmp = tmp + self.bias_1
 
         # TODO: Why is for loop faster than cumprod?
         B = torch.zeros((x.shape[0], self.hidden_dim, self.order), device=x.device, dtype=x.dtype)
@@ -101,7 +132,12 @@ class TensorMACE(MessagePassing):
         # B = torch.cumprod(tmp, dim=-1)
 
         # calculate the new node features
-        x = (torch.einsum("ihn, onh -> ion", B, self.param_2) + self.bias_2).sum(dim=-1)
+        x = torch.einsum("ihn, onh -> ion", B, self.param_2)
+
+        if self.bias:
+            x = x + self.bias_2
+
+        x = x.sum(dim=-1)
 
         return self.dropout(x) + self.lin_skip(skip)
 
