@@ -120,6 +120,8 @@ class TensorMACE(MessagePassing):
         A = self.propagate(edge_index, x=x, edge_embedding=edge_embedding, lframes=lframes)
 
         # calculate the Bs
+        # Shape param_1: (hidden_dim, order, hidden_dim)
+        # Shape A: (num_nodes, hidden_dim)
         tmp = torch.einsum("ih, onh -> ion", A, self.param_1)
         if self.bias:
             tmp = tmp + self.bias_1
@@ -132,6 +134,8 @@ class TensorMACE(MessagePassing):
         # B = torch.cumprod(tmp, dim=-1)
 
         # calculate the new node features
+        # Shape param_2: (out_dim, order, hidden_dim)
+        # Shape B: (num_nodes, hidden_dim, order)
         x = torch.einsum("ihn, onh -> ion", B, self.param_2)
 
         if self.bias:
