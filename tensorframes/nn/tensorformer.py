@@ -77,7 +77,7 @@ class TensorFormer(TFMessagePassing):
             out_dim=(hidden_value_dim + hidden_scalar_dim) * num_heads,
         )
 
-        self.scalar_norm = LayerNorm(hidden_scalar_dim)
+        self.scalar_norm = LayerNorm(hidden_scalar_dim * num_heads)
 
         if scalar_activation_function is None:
             self.act_scalar = torch.nn.LeakyReLU()
@@ -168,6 +168,7 @@ class TensorFormer(TFMessagePassing):
             lframes=lframes,
             pos=pos,
             edge_embedding=edge_embedding,
+            batch=batch.unsqueeze(-1) if batch is not None else None,
         )
 
         attention_output = self.lin_out(attention_output)
@@ -197,6 +198,7 @@ class TensorFormer(TFMessagePassing):
         ptr: Tensor,
         size_i: int,
         edge_embedding: Tensor,
+        batch_i: Tensor | None = None,
     ):
         """Calculates the message passing operation for the Tensorformer model.
 
@@ -221,13 +223,15 @@ class TensorFormer(TFMessagePassing):
 
         x = self.lin_1(x, edge_embedding)
 
-        tmp = x.view(-1, self.num_heads, self.hidden_value_dim + self.hidden_scalar_dim)
-
-        values = tmp[:, :, : self.hidden_value_dim]
-        scalars = tmp[:, :, self.hidden_value_dim :]
+        values = x[:, : self.num_heads * self.hidden_value_dim].reshape(
+            -1, self.num_heads, self.hidden_value_dim
+        )
+        scalars = x[:, self.num_heads * self.hidden_value_dim :]
 
         # scalar path
-        scalars = self.scalar_norm(scalars)
+        scalars = self.scalar_norm(scalars, batch_i.squeeze(-1)).reshape(
+            -1, self.num_heads, self.hidden_scalar_dim
+        )
         scalars = self.act_scalar(scalars)
         scalars = self.lin_scalar(scalars)
 
