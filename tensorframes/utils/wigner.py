@@ -112,9 +112,17 @@ def euler_angles_yxy(
         - https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
     """
     angles = torch.zeros(matrix.shape[:-1], dtype=matrix.dtype, device=matrix.device)
-    angles[..., 0] = torch.arctan2(matrix[..., 0, 1], matrix[..., 2, 1])
+
+    near_zeroes = matrix[..., 2, 1].abs() < eps
+    denominator = matrix[..., 2, 1] * near_zeroes.logical_not() + near_zeroes * eps
+
+    angles[..., 0] = torch.arctan2(matrix[..., 0, 1], denominator)
     angles[..., 1] = safe_acos.apply(matrix[..., 1, 1])
-    angles[..., 2] = torch.arctan2(matrix[..., 1, 0], -matrix[..., 1, 2])
+
+    near_zeroes = matrix[..., 1, 2].abs() < eps
+    denominator = matrix[..., 1, 2] * near_zeroes.logical_not() + near_zeroes * eps
+
+    angles[..., 2] = torch.arctan2(matrix[..., 1, 0], -denominator)
 
     if handle_special_cases:
         # hard code diagonal special cases (these do not happen much in practice):
