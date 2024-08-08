@@ -13,7 +13,7 @@
 The `tensorframes` package implements the message passing class described in the paper https://arxiv.org/abs/2405.15389v1. This class generalizes the typical message passing algorithm by transforming features from one node's local frame to another node's frame. This transformation results in an $O(N)$ invariant layer, which can be used to construct fully equivariant architectures:
 
 $$
-f_i^{(k)}=\psi^{(k)}\bigg( f_i^{(k-1)}, \bigoplus_{j\in\mathcal{N}}\phi^{(k)}\left(f_i^{(k-1)},\rho(g_i g_j^{-1})f_j^{(k-1)}, \rho_e(g_i)e_{ji}, R_i(\mathbf x_i - \mathbf x_j)\right) \bigg)
+f_i^{(k)}=\\psi^{(k)}\\bigg( f_i^{(k-1)}, \\bigoplus\_{j\\in\\mathcal{N}}\\phi^{(k)}\\left(f_i^{(k-1)},\\rho(g_i g_j^{-1})f_j^{(k-1)}, \\rho_e(g_i)e\_{ji}, R_i(\\mathbf x_i - \\mathbf x_j)\\right) \\bigg)
 $$
 
 The `TFMessagePassing` class is introduced to efficiently implement these layers, abstracting the transformation behavior of the parameters. For predicting local frames, the `LearnedLFrames` module is available, which calculates the local frame based on a local neighborhood. Additionally, we provide input and output layers to build fully end-to-end equivariant models, adhering to the guidelines outlined in the referenced paper.
@@ -66,8 +66,8 @@ conda env create -f environment.yaml -n tensorframes
 # activate conda environment
 conda activate tensorframes
 
-# install as an editable package
-pip install -e .
+# install as an editable package (params are used because of vscode autofill)
+pip install -e . --config-settings editable_mode=strict
 ```
 
 ## Developer Info

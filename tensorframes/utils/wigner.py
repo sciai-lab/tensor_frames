@@ -34,6 +34,69 @@ def _z_rot_mat(angle, l: int) -> torch.Tensor:
     return M
 
 
+def acos_grad(x: torch.Tensor) -> torch.Tensor:
+    """Compute the gradient of the arccos function.
+
+    Args:
+        x (torch.Tensor): The input tensor.
+
+    Returns:
+        torch.Tensor: The gradient of the arccos function.
+    """
+    return -1.0 / torch.sqrt(1.0 - x**2)
+
+
+class safe_acos(torch.autograd.Function):
+    """A custom autograd function that computes the inverse cosine of the input tensor while
+    protecting against NaN outputs and large gradients.
+
+    adapted from https://github.com/pytorch/pytorch/issues/8069
+
+    Args:
+        input (torch.Tensor): The input tensor.
+
+    Returns:
+        torch.Tensor: The tensor with inverse cosine values.
+    """
+
+    @staticmethod
+    def forward(ctx, input: torch.Tensor) -> torch.Tensor:
+        """Applies the forward pass of the Wigner activation function.
+
+        Args:
+            ctx (torch.autograd.function._ContextMethodMixin): The context object for autograd.
+            input (torch.Tensor): The input tensor.
+
+        Returns:
+            torch.Tensor: The output tensor after applying the Wigner activation function.
+        """
+        ctx.save_for_backward(input)
+
+        # protect ourselves from nan outputs in forward pass.
+        return torch.clamp(input, min=-1 + 1e-6, max=1 - 1e-6).acos()
+
+    @staticmethod
+    def backward(ctx, grad_output: torch.Tensor) -> torch.Tensor:
+        """Computes the backward pass for the Wigner function.
+
+        Args:
+            ctx (torch.autograd.function._ContextMethodMixin): The context object.
+            grad_output (torch.Tensor): The gradient of the output.
+
+        Returns:
+            torch.Tensor: The gradient of the input.
+        """
+        (input,) = ctx.saved_tensors
+        grad_input = grad_output.clone()
+
+        # protect ourselves from large gradients in backward pass.
+        # outside of (-1 + epsilon, 1 - epsilon), gradient value is fixed constant to acos'(1-epsilon)
+        epsilon = 0.05
+        safe_input = torch.clamp(input, min=-1 + epsilon, max=1 - epsilon)
+
+        return acos_grad(safe_input) * grad_input
+
+
 def euler_angles_yxy(
     matrix: torch.Tensor, handle_special_cases: bool = False, eps: float = 1e-9
 ) -> torch.Tensor:
@@ -51,9 +114,15 @@ def euler_angles_yxy(
         - https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
     """
     angles = torch.zeros(matrix.shape[:-1], dtype=matrix.dtype, device=matrix.device)
-    angles[..., 0] = torch.arctan2(matrix[..., 0, 1], matrix[..., 2, 1])
-    angles[..., 1] = torch.arccos(matrix[..., 1, 1])
-    angles[..., 2] = torch.arctan2(matrix[..., 1, 0], -matrix[..., 1, 2])
+
+    denominator = torch.where(matrix[..., 2, 1].abs() < eps, eps, matrix[..., 2, 1])
+
+    angles[..., 0] = torch.arctan2(matrix[..., 0, 1], denominator)
+    angles[..., 1] = safe_acos.apply(matrix[..., 1, 1])
+
+    denominator = torch.where(matrix[..., 1, 2].abs() < eps, eps, matrix[..., 1, 2])
+
+    angles[..., 2] = torch.arctan2(matrix[..., 1, 0], -denominator)
 
     if handle_special_cases:
         # hard code diagonal special cases (these do not happen much in practice):
@@ -101,6 +170,9 @@ def wigner_D_with_J(
     .. note::
         The Euler angles are in the yxy convention. But in the paper and other theoretical works one uses the zyz convention. E3nn is special in that regard.
     """
+    if J.device != alpha.device:
+        J = J.to(alpha.device)
+
     Xa = _z_rot_mat(alpha, l)
     Xb = _z_rot_mat(beta, l)
     Xc = _z_rot_mat(gamma, l)

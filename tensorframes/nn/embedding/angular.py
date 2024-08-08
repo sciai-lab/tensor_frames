@@ -12,10 +12,14 @@ from tensorframes.nn.embedding.radial import compute_edge_vec
 class AngularEmbedding(torch.nn.Module):
     """Angular Embedding module."""
 
-    def __init__(self):
-        """Init AngularEmbedding module."""
+    def __init__(self, out_dim: int) -> None:
+        """Initializes an instance of the AngularEmbedding class.
+
+        Args:
+            out_dim (int): The output dimension of the embedding.
+        """
         super().__init__()
-        self.out_dim = None  # should be set in the subclass
+        self.out_dim = out_dim  # should be set in the subclass
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Computes the embedding for the given edge vector.
@@ -30,10 +34,10 @@ class AngularEmbedding(torch.nn.Module):
 
     def forward(
         self,
-        pos: Union[Tensor, Tuple] = None,
-        edge_index: Tensor = None,
-        lframes: LFrames = None,
-        edge_vec: Tensor = None,
+        pos: Union[Tensor, Tuple] | None = None,
+        edge_index: Tensor | None = None,
+        lframes: LFrames | None = None,
+        edge_vec: Tensor | None = None,
     ) -> Tensor:
         """Forward pass of the AngularEmbedding module.
 
@@ -62,7 +66,7 @@ class AngularEmbedding(torch.nn.Module):
 class TrivialAngularEmbedding(AngularEmbedding):
     """A trivial implementation of the AngularEmbedding class."""
 
-    def __init__(self, normalize: bool = True):
+    def __init__(self, normalize: bool = True) -> None:
         """Init TrivialAngularEmbedding module.
 
         Args:
@@ -72,9 +76,8 @@ class TrivialAngularEmbedding(AngularEmbedding):
             normalize (bool): Indicates whether to normalize the computed embeddings.
             out_dim (int): The output dimension of the embeddings.
         """
-        super().__init__()
+        super().__init__(out_dim=3)
         self.normalize = normalize
-        self.out_dim = 3
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Computes the embedding for the given edge vector.
@@ -96,7 +99,7 @@ class TrivialAngularEmbedding(AngularEmbedding):
 class SphericalHarmonicsEmbedding(AngularEmbedding):
     """Spherical Harmonics Embedding module."""
 
-    def __init__(self, lmax: int = 2, normalization: str = "norm"):
+    def __init__(self, lmax: int = 2, normalization: str = "norm") -> None:
         """Init Spherical Harmonics Embedding module.
 
         Args:
@@ -104,10 +107,9 @@ class SphericalHarmonicsEmbedding(AngularEmbedding):
             normalization (str): Normalization method for the spherical harmonics. Choose from ["component", "norm", "integral"].
                 Default is "norm".
         """
-        super().__init__()
-        self.normalization = normalization
         self.irreps_sh = o3.Irreps.spherical_harmonics(lmax)
-        self.out_dim = self.irreps_sh.dim - 1  # remove the constant function
+        super().__init__(out_dim=self.irreps_sh.dim - 1)
+        self.normalization = normalization
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Compute the spherical harmonics embedding for the given edge vectors.
@@ -123,7 +125,7 @@ class SphericalHarmonicsEmbedding(AngularEmbedding):
         )[..., 1:]
 
 
-def fibonacci_sphere(samples=1000):
+def fibonacci_sphere(samples: int = 1000) -> list:
     """Generate points on a sphere using the Fibonacci sphere algorithm.
 
     Args:
@@ -150,16 +152,19 @@ def fibonacci_sphere(samples=1000):
 
 
 class GaussianOnSphereEmbedding(AngularEmbedding):
-    """A class representing a Gaussian embedding on a sphere.
+    """A class representing a Gaussian embedding on a sphere."""
 
-    Args:
-        num_angular (int): The number of equi-spaced points on the sphere.
-        normalized (bool, optional): Whether to normalize the gaussians. Defaults to True.
-        is_learnable (bool, optional): Whether the gaussian widths are learnable parameters. Defaults to True.
-    """
+    def __init__(
+        self, num_angular: int, normalized: bool = True, is_learnable: bool = True
+    ) -> None:
+        """Initialize the AngularEmbedding layer.
 
-    def __init__(self, num_angular: int, normalized: bool = True, is_learnable: bool = True):
-        super().__init__()
+        Args:
+            num_angular (int): The number of angular points to generate on the sphere.
+            normalized (bool, optional): Whether to normalize the angular embeddings. Defaults to True.
+            is_learnable (bool, optional): Whether the angular embeddings are learnable parameters. Defaults to True.
+        """
+        super().__init__(out_dim=num_angular)
         self.normalized = normalized
 
         # get num_angular equi spaced points on the sphere:
@@ -176,8 +181,6 @@ class GaussianOnSphereEmbedding(AngularEmbedding):
         else:
             self.register_buffer("centers", points)
             self.register_buffer("widths", widths)
-
-        self.out_dim = num_angular
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:
         """Compute the Gaussian embedding for the given edge vector.
@@ -201,43 +204,3 @@ class GaussianOnSphereEmbedding(AngularEmbedding):
             exp = exp / torch.sqrt(self.widths * torch.pi).to(edge_vec.dtype)
 
         return exp
-
-
-if __name__ == "__main__":
-    from e3nn.o3 import rand_matrix
-
-    pos = torch.rand(10, 3)
-    edge_index = torch.randint(0, 10, (2, 20))
-    lframes = rand_matrix(10)
-    parity_mask = torch.randint(0, 2, (10,), dtype=torch.bool)
-    lframes[parity_mask, :, 0] *= -1
-    lframes = LFrames(matrices=lframes)
-
-    edge_vec = compute_edge_vec(pos, edge_index, lframes)
-
-    # test trivial angular embedding
-    trivial = TrivialAngularEmbedding(normalize=True)
-    assert torch.allclose(
-        trivial(edge_vec=edge_vec),
-        edge_vec / (torch.norm(edge_vec, dim=-1, keepdim=True) + 1e-9),
-        atol=1e-7,
-    )
-    assert torch.allclose(
-        trivial(pos=pos, edge_index=edge_index, lframes=lframes),
-        trivial(edge_vec=edge_vec),
-        atol=1e-7,
-    )
-    assert torch.allclose(
-        trivial(pos=(pos, pos), edge_index=edge_index, lframes=(lframes, lframes)),
-        trivial(edge_vec=edge_vec),
-        atol=1e-7,
-    )
-
-    # test spherical harmonics embedding
-    sp_embedding = SphericalHarmonicsEmbedding(lmax=2)
-    assert torch.allclose(
-        sp_embedding(edge_vec=edge_vec),
-        sp_embedding(pos=pos, edge_index=edge_index, lframes=lframes),
-    )
-
-    print("All tests passed!")

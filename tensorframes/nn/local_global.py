@@ -17,7 +17,7 @@ class FromGlobalToLocalFrame(Module):
         """Initialize the FromGlobalToLocalFrame Module.
 
         Args:
-            rep (Union[TensorReps, Irreps]): The representation which is used to transform the features.
+            rep (Union[TensorReps, Irreps, str]): The representation which is used to transform the features.
         """
         super().__init__()
         self.rep = parse_reps(rep)
@@ -43,7 +43,7 @@ class FromLocalToGlobalFrame(Module):
         """Initialize the FromLocalToGlobalFrame Module.
 
         Args:
-            rep (Union[TensorReps, Irreps]): The representation which is used to transform the features.
+            rep (Union[TensorReps, Irreps, str]): The representation which is used to transform the features.
         """
         super().__init__()
         self.rep = parse_reps(rep)

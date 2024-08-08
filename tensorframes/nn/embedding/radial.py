@@ -6,11 +6,11 @@ from torch import Tensor
 from torch.nn import Module
 
 from tensorframes.lframes import LFrames
-from tensorframes.nn.envelope import Envelope
+from tensorframes.reps.tensorreps import TensorReps
 
 
 def compute_edge_vec(
-    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple] = None
+    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple] | None = None
 ) -> Tensor:
     """Compute the edge vectors between node positions and rotates them into the local frames of
     the receiving nodes.
@@ -38,8 +38,9 @@ def compute_edge_vec(
 
     edge_vec = pos_j - pos_i
     if lframes[1] is not None:
-        lframes_i = lframes[1].index_select(edge_index[1]).matrices.reshape(-1, 3, 3)
-        edge_vec = torch.matmul(lframes_i, edge_vec.unsqueeze(-1)).squeeze(-1)
+        rep_trafo = TensorReps("1x1n").get_transform_class()
+        edge_vec = rep_trafo.forward(edge_vec, lframes[1].index_select(edge_index[1]))
+
     return edge_vec
 
 
@@ -54,10 +55,14 @@ class RadialEmbedding(Module):
             Forward pass of the RadialEmbedding module.
     """
 
-    def __init__(self):
-        """Initialises the RadialEmbedding module."""
+    def __init__(self, out_dim: int):
+        """Initializes a RadialEmbeddingLayer object.
+
+        Args:
+            out_dim (int): The output dimension of the embedding layer.
+        """
         super().__init__()
-        self.out_dim = None  # should be set in the subclass
+        self.out_dim = out_dim
 
     def compute_embedding(self, norm: Tensor) -> Tensor:
         """Computes the embedding based on the given norm.
@@ -71,7 +76,10 @@ class RadialEmbedding(Module):
         raise NotImplementedError
 
     def forward(
-        self, pos: Union[Tensor, Tuple] = None, edge_index: Tensor = None, edge_vec: Tensor = None
+        self,
+        pos: Union[Tensor, Tuple] | None = None,
+        edge_index: Tensor | None = None,
+        edge_vec: Tensor | None = None,
     ) -> Tensor:
         """Forward pass of the RadialEmbedding module.
 
@@ -99,44 +107,34 @@ class RadialEmbedding(Module):
 
 
 class BesselEmbedding(RadialEmbedding):
-    """BesselEmbedding class represents a radial embedding using Bessel functions.
-
-    Args:
-        num_radial (int): The number of radial basis functions.
-        cutoff (float): The cutoff radius for the radial basis functions.
-        envelope_exponent (int): The exponent for the envelope function.
-
-    Attributes:
-        num_radial (int): The number of radial basis functions.
-        inv_cutoff (float): The inverse of the cutoff radius.
-        norm_const (float): The normalization constant.
-        out_dim (int): The output dimension of the embedding.
-        envelope (Envelope): The envelope function.
-        frequencies (torch.nn.Parameter): The frequencies of the radial basis functions.
-
-    Methods:
-        compute_embedding(norm: Tensor) -> Tensor:
-            Computes the embedding for the given norm.
-    """
+    """BesselEmbedding class represents a radial embedding using Bessel functions."""
 
     def __init__(
         self,
         num_frequencies: int,
-        cutoff: float = None,
-        envelope_exponent: int = None,
+        cutoff: float | None = None,
+        envelope: Module | None = None,
         flip_negative: bool = False,
-    ):
-        super().__init__()
+    ) -> None:
+        """Initialize the RadialEmbedding layer.
 
-        self.out_dim = num_frequencies
+        Args:
+            num_frequencies (int): The number of frequencies to use.
+            cutoff (float, optional): The cutoff value for the envelope function. Defaults to None.
+            envelope (Module, optional): The envelope function to use. Defaults to None.
+            flip_negative (bool, optional): Whether to flip the negative frequencies. Defaults to False.
+        """
+        super().__init__(out_dim=num_frequencies)
+
         self.num_frequencies = num_frequencies
+        self.envelope = envelope
         self.flip_negative = flip_negative
 
-        self.envelope = None
-        if cutoff is not None and envelope_exponent is not None:
+        if cutoff is not None and self.envelope is not None:
             self.inv_cutoff = 1 / cutoff
             self.norm_const = (2 * self.inv_cutoff) ** 0.5
-            self.envelope = Envelope(envelope_exponent)
+        else:
+            self.envelope = None
 
         data = torch.pi * torch.arange(1, num_frequencies + 1)
         # Initialize frequencies at canonical positions
@@ -206,7 +204,7 @@ class GaussianEmbedding(RadialEmbedding):
         minimum_initial_range: float = 0.0,
         is_learnable: bool = True,
         intersection: float = 0.5,
-        gaussian_width: float = None,
+        gaussian_width: float | None = None,
     ) -> None:
         """Initialises the class. You can specify the number of gaussians and if the gaussians
         should be normalized. This function initialises the shift and scale parameters of the
@@ -219,12 +217,11 @@ class GaussianEmbedding(RadialEmbedding):
             maximum_initial_radius (float, optional): The maximum initial radius of the gaussians. Defaults to 5.0.
             is_learnable (bool, optional): Defines if the parameters of the gaussians should be learnable. Defaults to True.
             intersection (float, optional): The intersection of the gaussians, used to compute the width if not specified. Defaults to 0.5.
-            gaussian_width (float, optional): The width of the gaussian functions. Defaults to None.
+            gaussian_width (float, optional): The width of the gaussian functions. If None it calculates the gaussian width. Defaults to None.
         """
-        super().__init__()
+        super().__init__(out_dim=num_gaussians)
 
         self.num_gaussians = num_gaussians
-        self.out_dim = num_gaussians
 
         if gaussian_width is None:
             gaussian_width = get_gaussian_width(
@@ -280,10 +277,9 @@ class TrivialRadialEmbedding(RadialEmbedding):
     """A trivial radial embedding class that returns the norm of an edge vector as the
     embedding."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialises the class."""
-        super().__init__()
-        self.out_dim = 1
+        super().__init__(out_dim=1)
 
     def compute_embedding(self, norm: Tensor) -> Tensor:
         """Computes the embedding for the given input tensor.
@@ -295,60 +291,3 @@ class TrivialRadialEmbedding(RadialEmbedding):
             Tensor: The computed embedding, which is the same as the input tensor.
         """
         return norm
-
-
-if __name__ == "__main__":
-    from e3nn.o3 import rand_matrix
-
-    pos = torch.rand(10, 3)
-    edge_index = torch.randint(0, 10, (2, 20))
-    lframes = rand_matrix(10)
-    parity_mask = torch.randint(0, 2, (10,), dtype=torch.bool)
-    lframes[parity_mask, :, 0] *= -1
-    lframes = LFrames(matrices=lframes)
-
-    edge_vec1 = compute_edge_vec(pos, edge_index)
-    edge_vec2 = compute_edge_vec(pos, edge_index, lframes)
-
-    edge_vec2_back = []
-    lframes_i = lframes.index_select(edge_index[1]).matrices.reshape(-1, 3, 3)
-    for i in range(20):
-        edge_vec2_back.append(lframes_i[i].T @ edge_vec2[i])  # rotate back
-    edge_vec2_back = torch.stack(edge_vec2_back)
-    assert torch.allclose(edge_vec1, edge_vec2_back)
-
-    # test gaussian radial embedding
-    gauss = GaussianEmbedding()
-    assert torch.allclose(gauss(edge_vec=edge_vec1), gauss(edge_vec=edge_vec2))
-    assert torch.allclose(
-        gauss(pos=pos, edge_index=edge_index), gauss(pos=(pos, pos), edge_index=edge_index)
-    )
-    assert torch.allclose(gauss(pos=pos, edge_index=edge_index), gauss(edge_vec=edge_vec1))
-
-    # test bessel radial embedding
-    bessel = BesselEmbedding(num_frequencies=10, cutoff=10.0, envelope_exponent=2)
-    assert torch.allclose(bessel(edge_vec=edge_vec1), bessel(edge_vec=edge_vec2), atol=1e-6)
-    assert torch.allclose(
-        bessel(pos=pos, edge_index=edge_index),
-        bessel(pos=(pos, pos), edge_index=edge_index),
-        atol=1e-6,
-    )
-    assert torch.allclose(
-        bessel(pos=pos, edge_index=edge_index), bessel(edge_vec=edge_vec1), atol=1e-6
-    )
-
-    # test flip negative:
-    out1 = bessel(edge_vec=torch.tensor([[1.0, 2, 3], [-1, -2, -3], [4, 5, 6], [4, -5, 6]]))
-    print(out1)
-    assert torch.allclose(out1[0], -out1[1])
-    assert torch.allclose(out1[2][1], -out1[3][1])
-    assert torch.allclose(out1[2][0], out1[3][0])
-    assert torch.allclose(out1[2][2], out1[3][2])
-    print(out1)
-
-    bessel.flip_negative = False
-    out2 = bessel(edge_vec=torch.tensor([[1.0, 2, 3], [-1, -2, -3], [4, 5, 6], [4, -5, 6]]))
-    assert torch.allclose(out2[0], out2[1])
-    assert torch.allclose(out2[2], out2[3])
-
-    print("All tests passed!")
