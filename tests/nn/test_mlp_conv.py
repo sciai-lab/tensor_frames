@@ -1,24 +1,24 @@
 import torch
 
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.nn.mlp_conv import MLPConv
+from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
 
 
-def test_mlp_conv_layer():
-    # Test the MLPConv layer
-    # First test the MLPConv layer with tensor_reps
+def test_edge_conv_layer():
+    # Test the EdgeConv layer
+    # First test the EdgeConv layer with tensor_reps
 
     from e3nn.o3 import rand_matrix
 
-    # Test the MLPConv layer
-    # First test the MLPConv layer with TensorReps
+    # Test the EdgeConv layer
+    # First test the EdgeConv layer with TensorReps
     # Define the input and output representations
     in_reps = TensorReps("16x0n + 8x1n + 2x1p + 4x2n")
 
-    # Initialize the GCNConv layer
-    mlp_conv = MLPConv(
+    # Initialize the EdgeConv layer
+    mlp_conv = EdgeConv(
         in_reps=in_reps, hidden_channels=[32, 32], out_channels=16, concatenate_edge_vec=True
     )
 
@@ -61,13 +61,13 @@ def test_mlp_conv_layer():
     # get gradients on x:
     assert x_local.grad is not None
 
-    # Second test the MLPConv layer with Irreps
+    # Second test the EdgeConv layer with Irreps
 
     # Define the input and output representations
     in_reps = Irreps("16x0n + 8x1n + 2x1p + 4x2n")
 
-    # Initialize the GCNConv layer
-    mlp_conv = MLPConv(
+    # Initialize the EdgeConv layer
+    mlp_conv = EdgeConv(
         in_reps=in_reps, hidden_channels=[32, 32], out_channels=16, concatenate_edge_vec=True
     )
 

@@ -9,7 +9,7 @@ from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps import Irreps, TensorReps
 
 
-class MLPConv(TFMessagePassing):
+class EdgeConv(TFMessagePassing):
     """Multi-Layer Perceptron Convolutional layer for graph neural networks.
 
     This module can be used to implement the following layers:
@@ -188,6 +188,7 @@ class MLPConv(TFMessagePassing):
         x_i: torch.Tensor,
         x_j: torch.Tensor,
         batch_i: torch.Tensor,
+        batch_j: torch.Tensor,
         edge_vec: torch.Tensor,
         radial_embedding: torch.Tensor,
         angular_embedding: torch.Tensor,
@@ -205,6 +206,8 @@ class MLPConv(TFMessagePassing):
         Returns:
             torch.Tensor: Output node features.
         """
+        assert torch.allclose(batch_i, batch_j), "batch_i and batch_j must be equal"
+
         x = x_j
         edge_features = torch.tensor([], device=x.device, dtype=x.dtype)
 
