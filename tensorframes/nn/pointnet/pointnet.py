@@ -22,8 +22,6 @@ from tensorframes.reps.utils import parse_reps
 from tensorframes.utils import consistent_length_check, repeat_in_list
 from tensorframes.utils.point_sampling import CustomPointSampler
 
-StatisticsLayer = None
-
 
 class PointNetEncoder(torch.nn.Module):
     """Pointnet++ Encoder module."""
@@ -406,7 +404,6 @@ class PointNet(torch.nn.Module):
         pointnetpp_encoder: PointNetEncoder,
         pointnetpp_decoder: PointNetDecoder | None = None,
         final_lframes_layer: FinalLframesLayer | None = None,
-        output_statistics_layer: StatisticsLayer | None = None,
     ) -> None:
         """Initializes the PointNet model.
 
@@ -424,7 +421,6 @@ class PointNet(torch.nn.Module):
         self.pointnetpp_encoder = pointnetpp_encoder
         self.pointnetpp_decoder = pointnetpp_decoder
         self.final_lframes_layer = final_lframes_layer
-        self.output_statistics_layer = output_statistics_layer
         self.from_global_to_local_frame = from_global_to_local_frame
         self.from_local_to_global_frame = from_local_to_global_frame
 
@@ -483,8 +479,6 @@ class PointNet(torch.nn.Module):
 
         x = self.from_local_to_global_frame(x, lframes=lframes)
         # out = convert_dict_to_batch(dict(x=x, pos=pos, batch=batch, lframes=lframes))
-        if self.output_statistics_layer is not None:
-            x = self.output_statistics_layer(x)
 
         if return_cached_layer_outputs:
             return x, dict(
