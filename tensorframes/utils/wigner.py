@@ -50,6 +50,8 @@ class safe_acos(torch.autograd.Function):
     """A custom autograd function that computes the inverse cosine of the input tensor while
     protecting against NaN outputs and large gradients.
 
+    adapted from https://github.com/pytorch/pytorch/issues/8069
+
     Args:
         input (torch.Tensor): The input tensor.
 
@@ -113,14 +115,12 @@ def euler_angles_yxy(
     """
     angles = torch.zeros(matrix.shape[:-1], dtype=matrix.dtype, device=matrix.device)
 
-    near_zeroes = matrix[..., 2, 1].abs() < eps
-    denominator = matrix[..., 2, 1] * near_zeroes.logical_not() + near_zeroes * eps
+    denominator = torch.where(matrix[..., 2, 1].abs() < eps, eps, matrix[..., 2, 1])
 
     angles[..., 0] = torch.arctan2(matrix[..., 0, 1], denominator)
     angles[..., 1] = safe_acos.apply(matrix[..., 1, 1])
 
-    near_zeroes = matrix[..., 1, 2].abs() < eps
-    denominator = matrix[..., 1, 2] * near_zeroes.logical_not() + near_zeroes * eps
+    denominator = torch.where(matrix[..., 1, 2].abs() < eps, eps, matrix[..., 1, 2])
 
     angles[..., 2] = torch.arctan2(matrix[..., 1, 0], -denominator)
 

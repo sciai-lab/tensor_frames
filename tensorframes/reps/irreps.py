@@ -368,18 +368,24 @@ class IrrepsTransform(Module):
         for l_val in self.sorted_l:
             self.register_buffer(f"J_matrix_{l_val}", _Jd[l_val].float())
 
-    def forward(self, coeffs: Tensor, basis_change: Union[LFrames, ChangeOfLFrames]) -> Tensor:
+    def forward(
+        self, coeffs: Tensor, basis_change: Union[LFrames, ChangeOfLFrames], inplace: bool = False
+    ) -> Tensor:
         """Applies the transformation to the input coefficients.
 
         Args:
             coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the irreps.
             basis_change (ChangeOfLFrames): The change of frames to be applied. With matrices attribute of shape `(N, 3, 3)`.
+            inplace (bool, optional): Whether to perform the transformation in-place. Defaults to False.
 
         Returns:
             Tensor: The transformed coefficients.
         """
 
-        output_coeffs = coeffs.clone()
+        if inplace:
+            output_coeffs = coeffs
+        else:
+            output_coeffs = coeffs.clone()
 
         if isinstance(basis_change, torch.Tensor):
             basis_change = LFrames(basis_change)

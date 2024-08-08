@@ -407,15 +407,19 @@ class TensorRepsTransform(Module):
         return einsum
 
     def transform_coeffs_parallel(
-        self, coeffs: Tensor, basis_change: LFrames, avoid_einsum: bool = False
+        self,
+        coeffs: Tensor,
+        basis_change: LFrames,
+        avoid_einsum: bool = False,
+        inplace: bool = False,
     ) -> Tensor:
         """Transforms the coefficients using more parallel computation.
 
         Args:
             coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the tensor reps.
             basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 3, 3)`.
-            avoid_einsum (bool, optional): Whether to avoid using einsum for the transformation.
-                Defaults to False.
+            avoid_einsum (bool, optional): Whether to avoid using einsum for the transformation. Defaults to False.
+            inplace (bool, optional): Whether to perform the transformation inplace. Defaults to False.
 
         Returns:
             Tensor: The transformed coefficients.
@@ -433,7 +437,10 @@ class TensorRepsTransform(Module):
         N = coeffs.shape[0]
         rot_matrix_t = basis_change.inv
 
-        output_coeffs = coeffs.clone()
+        if inplace:
+            output_coeffs = coeffs
+        else:
+            output_coeffs = coeffs.clone()
 
         largest_tensor = torch.tensor([], device=coeffs.device)
         for i, l in enumerate(self.sorted_n):
@@ -554,12 +561,13 @@ class TensorRepsTransform(Module):
 
         return output
 
-    def forward(self, coeffs: Tensor, basis_change: LFrames) -> Tensor:
+    def forward(self, coeffs: Tensor, basis_change: LFrames, inplace: bool = False) -> Tensor:
         """Applies the forward transformation to the input coefficients.
 
         Args:
             coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the tensor reps.
             basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 3, 3)`.
+            inplace (bool, optional): Whether to perform the transformation inplace. Only relevant for parallel trafo. Defaults to False.
 
         Returns:
             Tensor: The transformed coefficients.
