@@ -9,7 +9,7 @@ from tensorframes.lframes.update_lframes import UpdateLFramesModule
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.nn.embedding.radial import GaussianEmbedding
 from tensorframes.nn.local_global import FromGlobalToLocalFrame, FromLocalToGlobalFrame
-from tensorframes.nn.mlp import MLP
+from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.nn.pointnet.dgcnn_blocks import DynamicSAModule
 from tensorframes.nn.pointnet.pointnet_blocks import (
     FinalLframesLayer,
@@ -338,7 +338,7 @@ class PointNetDecoder(torch.nn.Module):
             in_tensor_reps = list_in_reps[i]
             skip_tensor_reps = encoder_module.list_tensor_reps[-i - 2]
             hidden_channels.append(self.list_tensor_reps[i + 1].dim)
-            mlp = MLP(
+            mlp = MLPWrapped(
                 in_channels=in_tensor_reps.dim + skip_tensor_reps.dim,
                 hidden_channels=hidden_channels,
                 **list_mlp_kwargs[i],

@@ -10,7 +10,7 @@ from tensorframes.lframes import ChangeOfLFrames, LFrames
 from tensorframes.lframes.learn_lframes import WrappedLearnedLocalFramesModule
 from tensorframes.lframes.update_lframes import UpdateLFramesModule
 from tensorframes.nn.edge_conv import EdgeConv
-from tensorframes.nn.mlp import MLP
+from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
 from tensorframes.utils.point_sampling import CustomPointSampler
 
@@ -297,7 +297,7 @@ class FPModule(torch.nn.Module):
 
     def __init__(
         self,
-        mlp: MLP,
+        mlp: MLPWrapped,
         reps: Union[TensorReps, Irreps],
         k: int = 3,
         lframes_updater: UpdateLFramesModule | None = None,
@@ -385,7 +385,9 @@ class FinalLframesLayer(torch.nn.Module):
             self.mlp = None
             self.linear = torch.nn.Linear(in_channels, out_reps.dim)
         else:
-            self.mlp = MLP(in_channels=in_channels, hidden_channels=mlp_channels, **mlp_kwargs)
+            self.mlp = MLPWrapped(
+                in_channels=in_channels, hidden_channels=mlp_channels, **mlp_kwargs
+            )
             self.linear = torch.nn.Linear(mlp_channels[-1], out_reps.dim)
         self.final_activation = final_activation
 

@@ -4,7 +4,7 @@ import torch
 
 from tensorframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import compute_edge_vec
-from tensorframes.nn.mlp import MLP
+from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps import Irreps, TensorReps
 
@@ -95,18 +95,20 @@ class EdgeConv(TFMessagePassing):
             use_edge_feature_product = False
 
         if second_hidden_channels is None:
-            self.mlp1 = MLP(
+            self.mlp1 = MLPWrapped(
                 in_channels=mlp1_in_dim,
                 hidden_channels=hidden_channels + [out_channels],
                 **mlp_kwargs
             )
             self.mlp2 = None
         else:
-            self.mlp1 = MLP(in_channels=mlp1_in_dim, hidden_channels=hidden_channels, **mlp_kwargs)
+            self.mlp1 = MLPWrapped(
+                in_channels=mlp1_in_dim, hidden_channels=hidden_channels, **mlp_kwargs
+            )
             mlp2_in_dim = hidden_channels[-1]
             if concatenate_receiver_features_in_mlp2:
                 mlp2_in_dim += in_reps.dim
-            self.mlp2 = MLP(
+            self.mlp2 = MLPWrapped(
                 in_channels=mlp2_in_dim,
                 hidden_channels=second_hidden_channels + [out_channels],
                 **mlp_kwargs
