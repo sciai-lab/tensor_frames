@@ -55,7 +55,7 @@ class TensorFormer(TFMessagePassing):
             dropout_attention (float, optional): The dropout rate for the values after attention. Defaults to 0.0.
             dropout_mlp (float, optional): The dropout rate for MLP layers. Defaults to 0.0.
             stochastic_depth (float, optional): The stochastic depth rate. The probability that this module will be skipped. Must be between 0 and 1. Defaults to 0.0.
-            radial_cutoff (float, optional): The radial cutoff distance. Defaults to 5.0.
+            radial_cutoff (float, optional): The radial cutoff distance, used in the envelope function. Defaults to 5.0.
             envelope (Module, optional): The envelope function for radial basis functions. Defaults to EnvelopePoly(5).
             softmax (bool, optional): Whether to apply softmax to attention weights if not uses SiLU. Defaults to False.
             attention_weight_dropout (float, optional): The dropout rate for attention weights. Defaults to 0.0.
@@ -229,9 +229,9 @@ class TensorFormer(TFMessagePassing):
         scalars = x[:, self.num_heads * self.hidden_value_dim :]
 
         # scalar path
-        scalars = self.scalar_norm(scalars, batch_i.squeeze(-1)).reshape(
-            -1, self.num_heads, self.hidden_scalar_dim
-        )
+        scalars = self.scalar_norm(
+            scalars, batch_i.squeeze(-1) if batch_i is not None else None
+        ).reshape(-1, self.num_heads, self.hidden_scalar_dim)
         scalars = self.act_scalar(scalars)
         scalars = self.lin_scalar(scalars)
 
@@ -251,36 +251,3 @@ class TensorFormer(TFMessagePassing):
         out = out.contiguous().view(-1, self.num_heads * self.hidden_value_dim) * envelope
 
         return out
-
-
-if __name__ == "__main__":
-    # test the TensorFormer model
-    tensor_reps = TensorReps("10x0n+5x1n+2x2n")
-    num_heads = 4
-    hidden_layers = [128, 64]
-    hidden_value_dim = 64
-    hidden_scalar_dim = 64
-    edge_embedding_dim = 32
-
-    model = TensorFormer(
-        tensor_reps=tensor_reps,
-        num_heads=num_heads,
-        hidden_layers=hidden_layers,
-        hidden_value_dim=hidden_value_dim,
-        hidden_scalar_dim=hidden_scalar_dim,
-        edge_embedding_dim=edge_embedding_dim,
-    )
-
-    # create test data
-    x = torch.randn(10, tensor_reps.dim)
-    pos = torch.randn(10, 3)
-    edge_index = torch.tensor([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]])
-    edge_embedding = torch.randn(10, edge_embedding_dim)
-    import e3nn
-
-    lframes_mat = e3nn.o3.rand_matrix(10)
-    lframes = LFrames(lframes_mat)
-
-    # forward pass
-    out = model(x, lframes, edge_index, pos, edge_embedding)
-    print(out.shape)

@@ -23,7 +23,7 @@ class TensorMACE(MessagePassing):
         out_tensor_reps: Union[TensorReps, Irreps],
         edge_emb_dim: int,
         hidden_dim: int,
-        order: int = 3,
+        max_order: int = 3,
         dropout: float = 0.0,
         bias: bool = False,
     ) -> None:
@@ -48,21 +48,23 @@ class TensorMACE(MessagePassing):
         self.in_dim = in_tensor_reps.dim
         self.out_dim = out_tensor_reps.dim
         self.edge_emb_dim = edge_emb_dim
-        self.order = order
+        self.max_order = max_order
         self.hidden_dim = hidden_dim
         self.bias = bias
 
-        self.lin_1 = EdgeLinear(self.in_dim, self.edge_emb_dim, self.hidden_dim)
+        self.edge_lin = EdgeLinear(self.in_dim, self.edge_emb_dim, self.hidden_dim)
 
         self.param_1 = torch.nn.Parameter(
-            torch.empty(self.hidden_dim, self.order, self.hidden_dim)
+            torch.empty(self.hidden_dim, self.max_order, self.hidden_dim)
         )
 
-        self.param_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.order, self.hidden_dim))
+        self.param_2 = torch.nn.Parameter(
+            torch.empty(self.out_dim, self.max_order, self.hidden_dim)
+        )
 
         if self.bias:
-            self.bias_1 = torch.nn.Parameter(torch.empty(self.hidden_dim, self.order))
-            self.bias_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.order))
+            self.bias_1 = torch.nn.Parameter(torch.empty(self.hidden_dim, self.max_order))
+            self.bias_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.max_order))
 
         self.lin_skip = torch.nn.Linear(self.in_dim, self.out_dim, bias=self.bias)
 
@@ -127,8 +129,10 @@ class TensorMACE(MessagePassing):
             tmp = tmp + self.bias_1
 
         # TODO: Why is for loop faster than cumprod?
-        B = torch.zeros((x.shape[0], self.hidden_dim, self.order), device=x.device, dtype=x.dtype)
-        for i in range(self.order):
+        B = torch.zeros(
+            (x.shape[0], self.hidden_dim, self.max_order), device=x.device, dtype=x.dtype
+        )
+        for i in range(self.max_order):
             B[:, :, i] = torch.prod(tmp[:, :, : i + 1], dim=-1)
 
         # B = torch.cumprod(tmp, dim=-1)
@@ -155,31 +159,4 @@ class TensorMACE(MessagePassing):
         Returns:
             Tensor: The result of the message passing operation.
         """
-        return self.lin_1(x_j, edge_embedding)
-
-
-if __name__ == "__main__":
-    # Test the TensorMACE model
-    from tensorframes.lframes.lframes import LFrames
-    from tensorframes.reps.irreps import Irreps
-    from tensorframes.reps.tensorreps import TensorReps
-
-    in_tensor_reps = TensorReps("10x0n+5x1n+2x2n")
-    out_tensor_reps = Irreps("10x0n+5x1n+2x2n")
-    edge_emb_dim = 32
-    hidden_dim = 64
-    order = 3
-    dropout = 0.1
-
-    model = TensorMACE(in_tensor_reps, out_tensor_reps, edge_emb_dim, hidden_dim, order, dropout)
-
-    x = torch.randn(10, in_tensor_reps.dim)
-    # create a big edge_index
-    edge_index = torch.randint(0, 10, (2, 100))
-    edge_embedding = torch.randn(100, edge_emb_dim)
-    import e3nn
-
-    lframes = LFrames(e3nn.o3.rand_matrix(10))
-
-    out = model(x, edge_index, edge_embedding, lframes)
-    print(out)
+        return self.edge_lin(x_j, edge_embedding)
