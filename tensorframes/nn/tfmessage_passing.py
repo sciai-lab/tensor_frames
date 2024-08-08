@@ -11,7 +11,7 @@ class TFMessagePassing(MessagePassing):
     https://arxiv.org/abs/2405.15389v1
     """
 
-    def __init__(self, params_dict: Dict[str, Dict[str, Any]]) -> None:
+    def __init__(self, params_dict: Dict[str, Dict[str, Any]], aggr="add") -> None:
         """Initializes a new instance of the TFMessagePassing class.
 
         Args:
@@ -33,7 +33,7 @@ class TFMessagePassing(MessagePassing):
             if value["type"] is not None:
                 self.params_dict[key]["transform"] = value["rep"].get_transform_class()
 
-        super().__init__()
+        super().__init__(aggr=aggr)
 
         # Register hooks to call before propagating and before sending messages
         self.register_propagate_forward_pre_hook(self.pre_propagate_hook)
@@ -45,10 +45,10 @@ class TFMessagePassing(MessagePassing):
 
         Args:
             module (Any): The module object.
-            inputs (Dict[str, Any]): The inputs dictionary.
+            inputs (tuple): The inputs dictionary.
 
         Returns:
-            Dict[str, Any]: The modified inputs dictionary.
+            tuple: The modified inputs dictionary.
         """
         assert inputs[-1].get("lframes") is not None, "lframes are not in the propagate inputs"
 
@@ -63,10 +63,10 @@ class TFMessagePassing(MessagePassing):
 
         Args:
             module (Any): The module object.
-            inputs (Dict[str, Any]): The inputs dictionary.
+            inputs (tuple): The inputs dictionary.
 
         Returns:
-            Dict[str, Any]: The modified inputs dictionary.
+            tuple: The modified inputs dictionary.
         """
 
         # calculate lframes_i, lframes_j and the U matrix
@@ -81,8 +81,15 @@ class TFMessagePassing(MessagePassing):
                 # transform the features according to the representation
                 inputs[-1][param + "_j"] = param_info["transform"](inputs[-1][param + "_j"], U)
             elif param_info["type"] == "global":
-                assert inputs[-1].get(param) is not None, f"Key {param} not in inputs"
-                # get the representation and apply it to the features
-                inputs[-1][param] = param_info["transform"](inputs[-1][param], lframes_i)
+                if inputs[-1].get(param) is not None:
+                    inputs[-1][param] = param_info["transform"](inputs[-1][param], lframes_i)
+                if inputs[-1].get(param + "_j") is not None:
+                    inputs[-1][param + "_j"] = param_info["transform"](
+                        inputs[-1][param + "_j"], lframes_i
+                    )
+                if inputs[-1].get(param + "_i") is not None:
+                    inputs[-1][param + "_i"] = param_info["transform"](
+                        inputs[-1][param + "_i"], lframes_i
+                    )
 
         return inputs

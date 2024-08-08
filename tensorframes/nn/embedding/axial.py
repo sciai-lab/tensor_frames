@@ -42,10 +42,10 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
 
         self.normalize_edge_vec = normalize_edge_vec
         self.axis_specific_radial = axis_specific_radial
-        self.radial_modules = torch.nn.ModuleList()
         self.spatial_dim = spatial_dim
 
         if self.axis_specific_radial:
+            self.radial_modules = torch.nn.ModuleList()
             for i in range(spatial_dim):
                 if i == 0:
                     self.radial_modules.append(radial_embedding)
@@ -160,10 +160,10 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
         num_gaussians: int = 10,
         normalized: bool = False,
         maximum_initial_range: float = 1.0,
-        minimum_initial_range: float = None,
+        minimum_initial_range: float | None = None,
         is_learnable: bool = True,
         intersection: float = 0.5,
-        gaussian_width: float = None,
+        gaussian_width: float | None = None,
     ) -> None:
         """Initialize the AxisWiseGaussianEmbedding module.
 

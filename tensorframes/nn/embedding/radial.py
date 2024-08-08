@@ -6,6 +6,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from tensorframes.lframes import LFrames
+from tensorframes.reps.tensorreps import TensorReps
 
 
 def compute_edge_vec(
@@ -37,8 +38,9 @@ def compute_edge_vec(
 
     edge_vec = pos_j - pos_i
     if lframes[1] is not None:
-        lframes_i = lframes[1].index_select(edge_index[1]).matrices.reshape(-1, 3, 3)
-        edge_vec = torch.matmul(lframes_i, edge_vec.unsqueeze(-1)).squeeze(-1)
+        rep_trafo = TensorReps("1x1n").get_transform_class()
+        edge_vec = rep_trafo.forward(edge_vec, lframes[1].index_select(edge_index[1]))
+
     return edge_vec
 
 
