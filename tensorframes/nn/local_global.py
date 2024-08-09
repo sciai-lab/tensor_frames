@@ -13,15 +13,15 @@ from tensorframes.reps.utils import parse_reps
 class FromGlobalToLocalFrame(Module):
     """Transforms a tensor with a given representation from a global frame to a local frame."""
 
-    def __init__(self, rep: Union[TensorReps, Irreps, str]) -> None:
+    def __init__(self, reps: Union[TensorReps, Irreps, str]) -> None:
         """Initialize the FromGlobalToLocalFrame Module.
 
         Args:
-            rep (Union[TensorReps, Irreps, str]): The representation which is used to transform the features.
+            reps (Union[TensorReps, Irreps, str]): The representation which is used to transform the features.
         """
         super().__init__()
-        self.rep = parse_reps(rep)
-        self.trafo_class = rep.get_transform_class()
+        self.reps = parse_reps(reps)
+        self.trafo_class = self.reps.get_transform_class()
 
     def forward(self, x: Tensor, lframes: LFrames) -> Tensor:
         """Transforms the features x from a global frame to a local frame.
@@ -39,15 +39,15 @@ class FromGlobalToLocalFrame(Module):
 class FromLocalToGlobalFrame(Module):
     """Transforms a tensor with a given representation from a local frame to a global frame."""
 
-    def __init__(self, rep: Union[TensorReps, Irreps, str]) -> None:
+    def __init__(self, reps: Union[TensorReps, Irreps, str]) -> None:
         """Initialize the FromLocalToGlobalFrame Module.
 
         Args:
-            rep (Union[TensorReps, Irreps, str]): The representation which is used to transform the features.
+            reps (Union[TensorReps, Irreps, str]): The representation which is used to transform the features.
         """
         super().__init__()
-        self.rep = parse_reps(rep)
-        self.trafo_class = rep.get_transform_class()
+        self.reps = parse_reps(reps)
+        self.trafo_class = self.reps.get_transform_class()
 
     def forward(self, x: Tensor, lframes: LFrames) -> Tensor:
         """Transforms the features x from a local frame to a global frame.

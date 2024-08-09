@@ -1,11 +1,10 @@
-import warnings
 from typing import Tuple, Union
 
 import torch
 
 from tensorframes.lframes import LFrames
-from tensorframes.lframes.learn_lframes import WrappedLearnedLocalFramesModule
-from tensorframes.lframes.update_lframes import UpdateLFramesModule
+from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
+from tensorframes.lframes.updating_lframes import UpdateLFramesModule
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.nn.embedding.radial import GaussianEmbedding
 from tensorframes.nn.local_global import FromGlobalToLocalFrame, FromLocalToGlobalFrame
@@ -38,12 +37,11 @@ class PointNetEncoder(torch.nn.Module):
         list_conv_kwargs: Union[dict, list[dict]] | None = None,
         list_sam_kwargs: Union[dict, list[dict]] | None = None,
         list_lframes_update_kwargs: Union[dict, list[dict]] | None = None,
-        first_is_learn_lframes_module: bool = False,
         first_concats_pos_to_features: bool = False,
         first_concatenate_edge_vec: bool = False,
         use_dynamic_sam: bool = False,
-        lframes_learner: WrappedLearnedLocalFramesModule | None = None,
-        global_sam_module: GlobalSAModule | None = None,
+        lframes_learner: WrappedLearnedLFrames | None = None,
+        global_sam: GlobalSAModule | None = None,
         cache_layer_outputs: bool = False,
         adjust_max_radius_with_sampling: bool = True,
         radial_module_type: str = "none",
@@ -64,12 +62,11 @@ class PointNetEncoder(torch.nn.Module):
             list_conv_kwargs (Union[dict, list[dict]] | None, optional): Convolutional layer keyword arguments. Defaults to None.
             list_sam_kwargs (Union[dict, list[dict]] | None, optional): Point sampler keyword arguments. Defaults to None.
             list_lframes_update_kwargs (Union[dict, list[dict]] | None, optional): Local frames update keyword arguments. Defaults to None.
-            first_is_learn_lframes_module (bool, optional): Whether the first layer is a learned local frames module. Defaults to False.
             first_concats_pos_to_features (bool, optional): Whether the first layer concatenates position to features. Defaults to False.
             first_concatenate_edge_vec (bool, optional): Whether the first layer concatenates edge vectors. Defaults to False.
             use_dynamic_sam (bool, optional): Whether to use dynamic sampling. Defaults to False.
             lframes_learner (WrappedLearnedLocalFramesModule | None, optional): Learned local frames module. Defaults to None.
-            global_sam_module (GlobalSAModule | None, optional): Global point sampler module. Defaults to None.
+            global_sam (GlobalSAModule | None, optional): Global point sampler module. Defaults to None.
             cache_layer_outputs (bool, optional): Whether to cache layer outputs. Defaults to False.
             adjust_max_radius_with_sampling (bool, optional): Whether to adjust the maximum radius with sampling. Defaults to True.
             radial_module_type (str, optional): Type of radial module. Defaults to "none".
@@ -82,9 +79,8 @@ class PointNetEncoder(torch.nn.Module):
         assert TensorReps("1x1").dim == spatial_dim, "spatial dim must match with tensor rep"
         self.spatial_dim = spatial_dim
         list_in_reps = [parse_reps(reps) for reps in list_in_reps]  # parse from str if necessary
-        self.list_tensor_reps = list_in_reps + [parse_reps(sam_out_reps)]
-        self.global_sam_module = global_sam_module
-        self.first_is_learn_lframes_module = first_is_learn_lframes_module
+        self.list_reps = list_in_reps + [parse_reps(sam_out_reps)]
+        self.global_sam = global_sam
         self.cache_layer_outputs = cache_layer_outputs
         self.list_r = list_r
         self.use_dynamic_sam = use_dynamic_sam
@@ -127,7 +123,7 @@ class PointNetEncoder(torch.nn.Module):
         )
 
         # init module list
-        self.sam_modules = torch.nn.ModuleList()
+        self.sa_modules = torch.nn.ModuleList()
         for i, hidden_channels in enumerate(list_hidden_channels):
             if shared_radial_module:
                 radial_module = shared_radial_module
@@ -152,10 +148,14 @@ class PointNetEncoder(torch.nn.Module):
                     sam_kwargs["concat_pos_to_features"] = True
             else:
                 lframes_learner_i = None
-                lframes_updater_i = UpdateLFramesModule(
-                    input_tensor_reps=list_in_reps[i],
-                    **list_lframes_update_kwargs[i],
-                )
+                lframes_updater_kwargs = list_lframes_update_kwargs[i]
+                if lframes_updater_kwargs is None:
+                    lframes_updater_i = None
+                else:
+                    lframes_updater_i = UpdateLFramesModule(
+                        in_reps=list_in_reps[i],
+                        **list_lframes_update_kwargs[i],
+                    )
                 conv_kwargs = list_conv_kwargs[i]
                 sam_kwargs = list_sam_kwargs[i]
 
@@ -163,14 +163,14 @@ class PointNetEncoder(torch.nn.Module):
                 in_reps=list_in_reps[i],
                 hidden_channels=hidden_channels,
                 second_hidden_channels=second_hidden_channels,
-                out_channels=self.list_tensor_reps[i + 1].dim,
+                out_channels=self.list_reps[i + 1].dim,
                 spatial_dim=self.spatial_dim,
                 radial_module=radial_module,
                 **conv_kwargs,
             )
 
             if use_dynamic_sam:
-                self.sam_modules.append(
+                self.sa_modules.append(
                     DynamicSAModule(
                         k=list_dynamic_k[i],
                         conv=conv,
@@ -181,7 +181,7 @@ class PointNetEncoder(torch.nn.Module):
                     )
                 )
             else:
-                self.sam_modules.append(
+                self.sa_modules.append(
                     SAModule(
                         r=list_r[i],
                         conv=conv,
@@ -223,7 +223,7 @@ class PointNetEncoder(torch.nn.Module):
             for i in range(self.num_sam_layers):
                 if radial_module_type == "gaussian":
                     if adjust_max_radius_with_sampling:
-                        radial_module_kwargs["maximum_initial_radius"] = self.list_r[i]
+                        radial_module_kwargs["maximum_initial_range"] = self.list_r[i]
                     list_radial_modules.append(GaussianEmbedding(**radial_module_kwargs))
                 else:
                     raise ValueError(f"radial_module_type {radial_module_type} not supported")
@@ -257,13 +257,13 @@ class PointNetEncoder(torch.nn.Module):
         )
 
         # sam layers:
-        for sam in self.sam_modules:
+        for sam in self.sa_modules:
             x, pos, batch, lframes = sam(x=x, pos=pos, batch=batch, lframes=lframes, epoch=epoch)
             if self.cache_layer_outputs:
                 cached_layer_outputs.append(dict(x=x, pos=pos, batch=batch, lframes=lframes))
 
-        if self.global_sam_module is not None:
-            x, pos, batch, lframes = self.global_sam_module(
+        if self.global_sam is not None:
+            x, pos, batch, lframes = self.global_sam(
                 x=x,
                 pos=pos,
                 batch=batch,
@@ -305,10 +305,10 @@ class PointNetDecoder(torch.nn.Module):
         """
         super().__init__()
         assert (
-            encoder_module.global_sam_module is None
+            encoder_module.global_sam is None
         ), "encoder should not have a global sam module when used with decoder"
         list_in_reps = [parse_reps(reps) for reps in list_in_reps]  # parse from str if necessary
-        self.list_tensor_reps = list_in_reps + [parse_reps(out_reps)]
+        self.list_reps = list_in_reps + [parse_reps(out_reps)]
         self.cache_layer_outputs = encoder_module.cache_layer_outputs
 
         list_k = repeat_in_list(list_k, repeats=len(list_hidden_channels))
@@ -325,21 +325,19 @@ class PointNetDecoder(torch.nn.Module):
                 list_mlp_kwargs,
                 list_k,
                 list_lframes_update_kwargs,
-                encoder_module.sam_modules,
+                encoder_module.sa_modules,
             ]
         )
 
         # init module list
         self.fp_modules = torch.nn.ModuleList()
-        assert (
-            list_in_reps[0] == encoder_module.list_tensor_reps[-1]
-        ), "in_tensor_reps must match encoder out"
+        assert list_in_reps[0] == encoder_module.list_reps[-1], "in_reps must match encoder out"
         for i, hidden_channels in enumerate(list_hidden_channels):
-            in_tensor_reps = list_in_reps[i]
-            skip_tensor_reps = encoder_module.list_tensor_reps[-i - 2]
-            hidden_channels.append(self.list_tensor_reps[i + 1].dim)
+            in_reps = list_in_reps[i]
+            skip_reps = encoder_module.list_reps[-i - 2]
+            hidden_channels.append(self.list_reps[i + 1].dim)
             mlp = MLPWrapped(
-                in_channels=in_tensor_reps.dim + skip_tensor_reps.dim,
+                in_channels=in_reps.dim + skip_reps.dim,
                 hidden_channels=hidden_channels,
                 **list_mlp_kwargs[i],
             )
@@ -347,13 +345,13 @@ class PointNetDecoder(torch.nn.Module):
                 lframes_updater = None
             else:
                 lframes_updater = UpdateLFramesModule(
-                    input_tensor_reps=in_tensor_reps + skip_tensor_reps,
+                    in_reps=in_reps + skip_reps,
                     **list_lframes_update_kwargs[i],
                 )
             self.fp_modules.append(
                 FPModule(
                     mlp=mlp,
-                    tensor_reps=in_tensor_reps,
+                    reps=in_reps,
                     k=list_k[i],
                     lframes_updater=lframes_updater,
                 )
@@ -398,7 +396,7 @@ class PointNet(torch.nn.Module):
 
     def __init__(
         self,
-        estimate_lframes_module: WrappedLearnedLocalFramesModule,
+        estimate_lframes_module: WrappedLearnedLFrames,
         from_global_to_local_frame: FromGlobalToLocalFrame,
         from_local_to_global_frame: FromLocalToGlobalFrame,
         pointnetpp_encoder: PointNetEncoder,
@@ -443,29 +441,13 @@ class PointNet(torch.nn.Module):
         x = data.x
         pos = data.pos
         batch = data.batch
-        if isinstance(self.estimate_lframes_module, WrappedLearnedLocalFramesModule):
-            lframes = self.estimate_lframes_module(x=x, pos=pos, batch=batch, epoch=epoch)
-        else:
-            lframes = self.estimate_lframes_module(pos=pos, batch=batch)
-
-        assert lframes.shape == (
-            pos.shape[0],
-            9,
-        ), f"lframes should have shape (num_points, 9) but has shape {lframes.shape}"
+        lframes = self.estimate_lframes_module(pos=pos, batch=batch)
 
         x = self.from_global_to_local_frame(x, lframes=lframes)
+
         x, pos, batch, lframes, enc_cached_layer_outputs = self.pointnetpp_encoder(
             x, pos, batch, lframes, epoch=epoch
         )
-
-        if self.graphformer is None:
-            graphformer_layer_outputs = None
-        else:
-            if self.pointnetpp_encoder.global_sam_module is not None:
-                warnings.warn("graphformer is not compatible with global_sam_module in encoder.")
-            x, pos, batch, lframes, graphformer_layer_outputs = self.graphformer(
-                x, pos, batch, lframes
-            )
 
         if self.pointnetpp_decoder is None:
             dec_cached_layer_outputs = None
@@ -478,12 +460,10 @@ class PointNet(torch.nn.Module):
             x, pos, batch, lframes = self.final_lframes_layer(x, pos, batch, lframes)
 
         x = self.from_local_to_global_frame(x, lframes=lframes)
-        # out = convert_dict_to_batch(dict(x=x, pos=pos, batch=batch, lframes=lframes))
 
         if return_cached_layer_outputs:
             return x, dict(
                 enc_cached_layer_outputs=enc_cached_layer_outputs,
-                graphformer_layer_outputs=graphformer_layer_outputs,
                 dec_cached_layer_outputs=dec_cached_layer_outputs,
             )
         else:

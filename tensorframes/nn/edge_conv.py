@@ -7,6 +7,7 @@ from tensorframes.nn.embedding.radial import compute_edge_vec
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps import Irreps, TensorReps
+from tensorframes.reps.utils import parse_reps
 
 
 class EdgeConv(TFMessagePassing):
@@ -18,7 +19,7 @@ class EdgeConv(TFMessagePassing):
     MLP2(f_i, aggr(MLP1(f_i, transformed f_j) odot linear(radial_embedding, angular_embedding))).
 
     Attributes:
-        in_reps (Union[TensorReps, Irreps]): Input representations or irreps.
+        in_reps (Union[TensorReps, Irreps, str]): Input tensor representations or irreps.
         radial_module (torch.nn.Module): Radial module.
         angular_module (torch.nn.Module): Angular module.
         concatenate_edge_vec (bool): Whether to concatenate edge vectors.
@@ -38,7 +39,7 @@ class EdgeConv(TFMessagePassing):
 
     def __init__(
         self,
-        in_reps: Union[TensorReps, Irreps],
+        in_reps: Union[TensorReps, Irreps, str],
         hidden_channels: List[int],
         out_channels: int,
         aggr: str = "add",
@@ -55,7 +56,7 @@ class EdgeConv(TFMessagePassing):
         """Initialize the MLPConv layer.
 
         Args:
-            in_reps (Union[TensorReps, Irreps]): Input representations or irreps.
+            in_reps (Union[TensorReps, Irreps, str]): Input tensor representations or irreps.
             hidden_channels (list[int]): List of hidden channel sizes.
             out_channels (int): Number of output channels.
             aggr (str, optional): Aggregation method. Defaults to "add".
@@ -69,17 +70,18 @@ class EdgeConv(TFMessagePassing):
             use_edge_feature_product (bool, optional): Whether to use edge feature product. Defaults to False.
             **mlp_kwargs: Additional keyword arguments for the MLP layers.
         """
-        super().__init__(aggr=aggr, params_dict={"x": {"type": "local", "rep": in_reps}})
-        self.in_reps = in_reps
+        self.in_reps = parse_reps(in_reps)
+        super().__init__(aggr=aggr, params_dict={"x": {"type": "local", "rep": self.in_reps}})
+
         self.radial_module = radial_module
         self.angular_module = angular_module
         self.concatenate_edge_vec = concatenate_edge_vec
         self.concatenate_receiver_features_in_mlp1 = concatenate_receiver_features_in_mlp1
         self.concatenate_receiver_features_in_mlp2 = concatenate_receiver_features_in_mlp2
-        mlp1_in_dim = in_reps.dim
+        mlp1_in_dim = self.in_reps.dim
         edge_feature_dim = 0
         if concatenate_receiver_features_in_mlp1:
-            mlp1_in_dim += in_reps.dim
+            mlp1_in_dim += self.in_reps.dim
         if concatenate_edge_vec:
             edge_feature_dim += spatial_dim
         if radial_module is not None:
@@ -161,13 +163,13 @@ class EdgeConv(TFMessagePassing):
         if self.radial_module is None:
             radial_embedding = None
         else:
-            radial_embedding = self.radial_module.compute_embedding(edge_vec=edge_vec)
+            radial_embedding = self.radial_module(edge_vec=edge_vec)
         if self.angular_module is None:
             angular_embedding = None
         else:
-            angular_embedding = self.radial_module.compute_embedding(edge_vec=edge_vec)
+            angular_embedding = self.angular_module(edge_vec=edge_vec)
 
-        batch = (batch[0].view(-1, 1), batch[1].view(-1, 1))
+        batch = (batch[0].view(-1, 1), batch[1].view(-1, 1))  # needed for index-magic
         x_aggr = self.propagate(
             edge_index,
             x=x,
@@ -198,9 +200,10 @@ class EdgeConv(TFMessagePassing):
         """Message passing function of the MLPConv layer.
 
         Args:
-            x_i (torch.Tensor): Input node features of the sender.
-            x_j (torch.Tensor): Input node features of the receiver.
-            batch_i (torch.Tensor): Batch indices of the sender.
+            x_i (torch.Tensor): Input node features of the receiver.
+            x_j (torch.Tensor): Input node features of the sender.
+            batch_i (torch.Tensor): Batch indices of the receiver.
+            batch_j (torch.Tensor): Batch indices of the sender.
             edge_vec (torch.Tensor): Edge vectors.
             radial_embedding (torch.Tensor): Radial embeddings.
             angular_embedding (torch.Tensor): Angular embeddings.
@@ -211,22 +214,30 @@ class EdgeConv(TFMessagePassing):
         assert torch.allclose(batch_i, batch_j), "batch_i and batch_j must be equal"
 
         x = x_j
-        edge_features = torch.tensor([], device=x.device, dtype=x.dtype)
+        edge_features = None
 
         if self.concatenate_receiver_features_in_mlp1 and x_i is not None:
             x = torch.cat((x, x_i), dim=-1)
 
         if self.concatenate_edge_vec:
-            edge_features = torch.cat((edge_features, edge_vec), dim=-1)
+            edge_features = edge_vec
 
         if radial_embedding is not None:
-            edge_features = torch.cat((edge_features, radial_embedding), dim=-1)
+            edge_features = (
+                radial_embedding
+                if edge_features is None
+                else torch.cat((edge_features, radial_embedding), dim=-1)
+            )
 
         if angular_embedding is not None:
-            edge_features = torch.cat((edge_features, angular_embedding), dim=-1)
+            edge_features = (
+                angular_embedding
+                if edge_features is None
+                else torch.cat((edge_features, angular_embedding), dim=-1)
+            )
 
         if self.edge_feature_product_layer is None:
-            x = torch.cat((x, edge_features), dim=-1)
+            x = edge_features if x is None else torch.cat((x, edge_features), dim=-1)
             x = self.mlp1(x, batch=batch_i.view(-1))
         else:
             x = self.edge_feature_product_layer(edge_features) * self.mlp1(

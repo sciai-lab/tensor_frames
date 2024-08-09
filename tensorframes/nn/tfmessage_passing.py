@@ -86,7 +86,7 @@ class TFMessagePassing(MessagePassing):
         # now go through the params_dict and get the representations and transform the features in the right way
         for param, param_info in self.params_dict.items():
             if param_info["type"] == "local":
-                assert inputs[-1].get(param + "_j") is not None, f"Key {param}_j not in inputs"
+                assert param + "_j" in inputs[-1], f"Key {param}_j not in inputs"
                 # transform the features according to the representation
                 inputs[-1][param + "_j"] = param_info["transform"](inputs[-1][param + "_j"], U)
             elif param_info["type"] == "global":

@@ -7,11 +7,12 @@ from torch_geometric.utils import scatter
 from torch_scatter import scatter_min
 
 from tensorframes.lframes import ChangeOfLFrames, LFrames
-from tensorframes.lframes.learn_lframes import WrappedLearnedLocalFramesModule
-from tensorframes.lframes.update_lframes import UpdateLFramesModule
+from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
+from tensorframes.lframes.updating_lframes import UpdateLFramesModule
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
+from tensorframes.reps.utils import parse_reps
 from tensorframes.utils.point_sampling import CustomPointSampler
 
 
@@ -33,7 +34,7 @@ class SAModule(torch.nn.Module):
         conv: EdgeConv,
         center_sampler: CustomPointSampler,
         max_num_neighbors: int = 64,
-        lframes_learner: WrappedLearnedLocalFramesModule | None = None,
+        lframes_learner: WrappedLearnedLFrames | None = None,
         lframes_updater: UpdateLFramesModule | None = None,
     ) -> None:
         """Initializes a new instance of the SAModule class.
@@ -43,7 +44,7 @@ class SAModule(torch.nn.Module):
             conv (MLPConv): MLPConv module for point-wise feature transformation.
             center_sampler (CustomPointSampler): CustomPointSampler module for center point sampling.
             max_num_neighbors (int, optional): Maximum number of neighbors to consider. Defaults to 64.
-            lframes_learner (WrappedLearnedLocalFramesModule | None, optional): The module used for learning local frames. Defaults to None.
+            lframes_learner (WrappedLearnedLFrames | None, optional): The module used for learning local frames. Defaults to None.
             lframes_updater (UpdateLFramesModule | None, optional): LFrames updater module. Defaults to None.
         """
         super().__init__()
@@ -51,7 +52,7 @@ class SAModule(torch.nn.Module):
         self.max_num_neighbors = max_num_neighbors
         self.conv = conv
         self.center_sampler = center_sampler
-        self.out_dim = conv.in_tensor_reps.dim
+        self.out_dim = conv.in_reps.dim
         self.lframes_learner = lframes_learner
         self.lframes_updater = lframes_updater
 
@@ -96,7 +97,6 @@ class SAModule(torch.nn.Module):
                 pos=(pos, pos[idx]),
                 batch=(batch, batch[idx]),
                 edge_index=edge_index,
-                epoch=epoch,
             )
         else:
             lframes_dst = lframes.index_select(idx)
@@ -149,7 +149,7 @@ class GlobalSAModule(torch.nn.Module):
 
         self.conv = conv
         self.lframes_updater = lframes_updater
-        self.out_dim = conv.in_tensor_reps.dim
+        self.out_dim = conv.in_reps.dim
         self.use_skip_connections = use_skip_connections
 
     def forward(
@@ -380,7 +380,7 @@ class FinalLframesLayer(torch.nn.Module):
             **mlp_kwargs: Additional keyword arguments for the MLP module.
         """
         super().__init__()
-        self.lframes
+        out_reps = parse_reps(out_reps)
         if mlp_channels is None:
             self.mlp = None
             self.linear = torch.nn.Linear(in_channels, out_reps.dim)

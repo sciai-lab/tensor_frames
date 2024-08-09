@@ -4,8 +4,8 @@ import torch
 from torch_geometric.nn import knn
 
 from tensorframes.lframes import LFrames
-from tensorframes.lframes.learn_lframes import WrappedLearnedLocalFramesModule
-from tensorframes.lframes.update_lframes import UpdateLFramesModule
+from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
+from tensorframes.lframes.updating_lframes import UpdateLFramesModule
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.reps import TensorReps
 from tensorframes.utils.point_sampling import CustomPointSampler
@@ -20,7 +20,7 @@ class DynamicSAModule(torch.nn.Module):
         conv (EdgeConv): The EdgeConv module used for convolutional operations.
         center_sampler (CustomPointSampler): The custom point sampler used for sampling center points.
         out_dim (int): The dimension of the output tensor representations.
-        lframes_learner (WrappedLearnedLocalFramesModule | None): The module used for learning local frames.
+        lframes_learner (WrappedLearnedLFrames | None): The module used for learning local frames.
         lframes_updater (UpdateLFramesModule | None): The module used for updating local frames.
         concat_pos_to_features (bool): Whether to concatenate positions to features.
         concat_lframes_to_features (bool): Whether to concatenate local frames to features.
@@ -35,7 +35,7 @@ class DynamicSAModule(torch.nn.Module):
         conv: EdgeConv,
         center_sampler: CustomPointSampler,
         k: int = 20,
-        lframes_learner: WrappedLearnedLocalFramesModule | None = None,
+        lframes_learner: WrappedLearnedLFrames | None = None,
         lframes_updater: UpdateLFramesModule | None = None,
         transform_to_global_frame: bool = True,
         concat_pos_to_features: bool = False,
@@ -59,12 +59,12 @@ class DynamicSAModule(torch.nn.Module):
         self.k = k
         self.conv = conv
         self.center_sampler = center_sampler
-        self.out_dim = conv.in_tensor_reps.dim
+        self.out_dim = conv.in_reps.dim
         self.lframes_learner = lframes_learner
         self.lframes_updater = lframes_updater
         self.concat_pos_to_features = concat_pos_to_features
         self.concat_lframes_to_features = concat_lframes_to_features
-        self.knn_feature_reps = conv.in_tensor_reps
+        self.knn_feature_reps = conv.in_reps
         self.transform_to_global_frame = transform_to_global_frame
         self.transform_pos = transform_pos
         self.pos_trafo = None
@@ -121,7 +121,6 @@ class DynamicSAModule(torch.nn.Module):
                 pos=(pos, pos[idx]),
                 batch=(batch, batch[idx]),
                 edge_index=edge_index,
-                epoch=epoch,
             )
         else:
             lframes_dst = lframes.index_select(idx)
