@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 
 from tensorframes.nn.embedding.angular import AngularEmbedding
-from tensorframes.nn.embedding.radial import TrivialRadialEmbedding, get_gaussian_width
+from tensorframes.nn.embedding.radial import RadialEmbedding, get_gaussian_width
 
 
 class AxisWiseEmbeddingFromRadial(AngularEmbedding):
@@ -24,10 +24,10 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
 
     def __init__(
         self,
+        radial_embedding: RadialEmbedding,
         normalize_edge_vec: bool = True,
         axis_specific_radial: bool = False,
         spatial_dim=3,
-        radial_embedding: torch.nn.Module = TrivialRadialEmbedding(),
     ):
         """Initialize the AxisWiseEmbeddingFromRadial module.
 

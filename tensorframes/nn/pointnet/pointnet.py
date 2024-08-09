@@ -6,6 +6,7 @@ from tensorframes.lframes import LFrames
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
 from tensorframes.lframes.updating_lframes import UpdateLFramesModule
 from tensorframes.nn.edge_conv import EdgeConv
+from tensorframes.nn.embedding.axial import AxisWiseEmbeddingFromRadial
 from tensorframes.nn.embedding.radial import GaussianEmbedding
 from tensorframes.nn.local_global import FromGlobalToLocalFrame, FromLocalToGlobalFrame
 from tensorframes.nn.mlp import MLPWrapped
@@ -47,6 +48,8 @@ class PointNetEncoder(torch.nn.Module):
         radial_module_type: str = "none",
         radial_module_kwargs: dict = None,
         shared_radial_module: bool = False,
+        convert_radial_to_axial: bool = False,
+        axial_from_radial_kwargs: dict = None,
         spatial_dim: int = 3,
     ) -> None:
         """Initializes the Pointnet++ Encoder module.
@@ -72,6 +75,8 @@ class PointNetEncoder(torch.nn.Module):
             radial_module_type (str, optional): Type of radial module. Defaults to "none".
             radial_module_kwargs (dict, optional): Radial module keyword arguments. Defaults to None.
             shared_radial_module (bool, optional): Whether to use a shared radial module. Defaults to False.
+            convert_radial_to_axial (bool, optional): Whether to convert radial to axial. Defaults to False.
+            axial_from_radial_kwargs (dict, optional): Keyword arguments for converting radial to axial. Defaults to None.
             spatial_dim (int, optional): Spatial dimension. Defaults to 3.
         """
         super().__init__()
@@ -120,6 +125,8 @@ class PointNetEncoder(torch.nn.Module):
             if self.list_r is None
             else adjust_max_radius_with_sampling,
             radial_module_shared=shared_radial_module,
+            convert_radial_to_axial=convert_radial_to_axial,
+            axial_from_radial_kwargs=axial_from_radial_kwargs,
         )
 
         # init module list
@@ -198,6 +205,8 @@ class PointNetEncoder(torch.nn.Module):
         radial_module_kwargs: dict,
         adjust_max_radius_with_sampling: bool,
         radial_module_shared: bool,
+        convert_radial_to_axial: bool,
+        axial_from_radial_kwargs: dict,
     ) -> tuple[list[torch.nn.Module], torch.nn.Module | None]:
         """Builds the radial modules based on the specified parameters.
 
@@ -206,6 +215,8 @@ class PointNetEncoder(torch.nn.Module):
             radial_module_kwargs (dict): Additional keyword arguments for the radial module.
             adjust_max_radius_with_sampling (bool): Whether to adjust the maximum radius with sampling.
             radial_module_shared (bool): Whether the radial module is shared across layers.
+            convert_radial_to_axial (bool): Whether to convert the radial module to an axial module.
+            axial_from_radial_kwargs (dict): Additional keyword arguments for the axial module.
 
         Returns:
             tuple[list[torch.nn.Module], torch.nn.Module | None]: A tuple containing a list of radial modules and a shared radial module (if applicable).
@@ -213,21 +224,42 @@ class PointNetEncoder(torch.nn.Module):
         if radial_module_type == "none":
             return [None] * self.num_sam_layers, None
 
+        radial_module_kwargs = {} if radial_module_kwargs is None else radial_module_kwargs
+        axial_from_radial_kwargs = (
+            {} if axial_from_radial_kwargs is None else axial_from_radial_kwargs
+        )
+
         list_radial_modules = []
         if radial_module_shared:
             if radial_module_type == "gaussian":
-                return list_radial_modules, GaussianEmbedding(**radial_module_kwargs)
+                radial_module = GaussianEmbedding(**radial_module_kwargs)
             else:
                 raise ValueError(f"radial_module_type {radial_module_type} not supported")
+
+            if convert_radial_to_axial:
+                radial_module = AxisWiseEmbeddingFromRadial(
+                    radial_embedding=radial_module, **axial_from_radial_kwargs
+                )
+
+            return list_radial_modules, radial_module
+
         else:
             for i in range(self.num_sam_layers):
                 if radial_module_type == "gaussian":
                     if adjust_max_radius_with_sampling:
                         radial_module_kwargs["maximum_initial_range"] = self.list_r[i]
-                    list_radial_modules.append(GaussianEmbedding(**radial_module_kwargs))
+                        if convert_radial_to_axial:
+                            radial_module_kwargs["minimum_initial_range"] = -self.list_r[i]
+                    radial_module = GaussianEmbedding(**radial_module_kwargs)
                 else:
                     raise ValueError(f"radial_module_type {radial_module_type} not supported")
 
+                if convert_radial_to_axial:
+                    radial_module = AxisWiseEmbeddingFromRadial(
+                        radial_embedding=radial_module, **axial_from_radial_kwargs
+                    )
+
+                list_radial_modules.append(radial_module)
         return list_radial_modules, None
 
     def forward(
@@ -441,7 +473,8 @@ class PointNet(torch.nn.Module):
         x = data.x
         pos = data.pos
         batch = data.batch
-        if isinstance(self.estimate_lframes_module, torch.nn.Module):
+
+        if isinstance(self.estimate_lframes_module, WrappedLearnedLFrames):
             x, lframes = self.estimate_lframes_module(x=x, pos=pos, batch=batch)
         else:
             lframes = self.estimate_lframes_module(pos=pos, batch=batch)
