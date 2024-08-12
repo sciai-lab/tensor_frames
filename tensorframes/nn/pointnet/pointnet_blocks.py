@@ -195,14 +195,13 @@ class GlobalSAModule(torch.nn.Module):
                 x = torch.cat([x, layer_output["x"]], dim=-1)
 
         x_dst = None if x is None else x[idx]
+        lframes_dst = lframes.index_select(idx)
         if self.lframes_updater is not None:
             x_dst, lframes_dst = self.lframes_updater(
-                lframes=lframes[idx],
+                lframes=lframes_dst,
                 x=x_dst,
                 batch=batch[idx],
             )
-        else:
-            lframes_dst = lframes.index_select(idx)
 
         x = self.conv(
             x=(x, x_dst),

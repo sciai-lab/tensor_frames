@@ -4,7 +4,7 @@ import torch
 
 from tensorframes.lframes import LFrames
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
-from tensorframes.lframes.updating_lframes import UpdateLFramesModule
+from tensorframes.lframes.updating_lframes import QuaternionsUpdateLFrames
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.nn.embedding.axial import AxisWiseEmbeddingFromRadial
 from tensorframes.nn.embedding.radial import GaussianEmbedding
@@ -159,7 +159,7 @@ class PointNetEncoder(torch.nn.Module):
                 if lframes_updater_kwargs is None:
                     lframes_updater_i = None
                 else:
-                    lframes_updater_i = UpdateLFramesModule(
+                    lframes_updater_i = QuaternionsUpdateLFrames(
                         in_reps=list_in_reps[i],
                         **list_lframes_update_kwargs[i],
                     )
@@ -376,7 +376,7 @@ class PointNetDecoder(torch.nn.Module):
             if list_lframes_update_kwargs[i] is None:
                 lframes_updater = None
             else:
-                lframes_updater = UpdateLFramesModule(
+                lframes_updater = QuaternionsUpdateLFrames(
                     in_reps=in_reps + skip_reps,
                     **list_lframes_update_kwargs[i],
                 )
