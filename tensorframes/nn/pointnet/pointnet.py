@@ -429,10 +429,10 @@ class PointNet(torch.nn.Module):
     def __init__(
         self,
         estimate_lframes_module: torch.nn.Module,
-        from_global_to_local_frame: FromGlobalToLocalFrame,
-        from_local_to_global_frame: FromLocalToGlobalFrame,
         pointnetpp_encoder: PointNetEncoder,
+        from_local_to_global_frame: FromLocalToGlobalFrame,
         pointnetpp_decoder: PointNetDecoder | None = None,
+        from_global_to_local_frame: FromGlobalToLocalFrame | None = None,
         final_lframes_layer: FinalLframesLayer | None = None,
     ) -> None:
         """Initializes the PointNet model.
@@ -479,7 +479,8 @@ class PointNet(torch.nn.Module):
         else:
             lframes = self.estimate_lframes_module(pos=pos, batch=batch)
 
-        x = self.from_global_to_local_frame(x, lframes=lframes)
+        if self.from_global_to_local_frame is not None:
+            x = self.from_global_to_local_frame(x, lframes=lframes)
 
         x, pos, batch, lframes, enc_cached_layer_outputs = self.pointnetpp_encoder(
             x, pos, batch, lframes, epoch=epoch
