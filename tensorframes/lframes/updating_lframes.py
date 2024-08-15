@@ -1,3 +1,4 @@
+import warnings
 from typing import Tuple
 
 import torch
@@ -23,18 +24,25 @@ class UpdateLFramesModule(torch.nn.Module):
 
 
 class QuaternionsUpdateLFrames(torch.nn.Module):
+    """Module for updating LFrames using quaternions.
+
+    Attributes:
+        in_reps (str): Input representations.
+        eps (float): Small value to avoid division by zero.
+        mlp (MLPWrapped): MLP module for feature transformation.
+        coeffs_transform (Union[IrrepsTransform, TensorRepsTransform]): Transformation class for coefficients.
+    """
+
     def __init__(
         self,
         in_reps,
         hidden_channels,
-        learning_rate_factor=1.0,
-        init_zero_angle=True,
+        init_zero_angle=False,
         eps=1e-6,
         **mlp_kwargs,
     ):
         super().__init__()
         self.in_reps = parse_reps(in_reps)
-        self.learning_rate_factor = learning_rate_factor
         self.eps = eps
 
         self.mlp = MLPWrapped(
@@ -44,9 +52,39 @@ class QuaternionsUpdateLFrames(torch.nn.Module):
         )
         self.coeffs_transform = self.in_reps.get_transform_class()
 
+        if init_zero_angle:
+            # warning that activation mustn't be ReLU
+            warnings.warn(
+                "Make sure that the activation function is NOT ReLU, When using init_zero_angle = True."
+            )
+            self.set_angle_weights_to_zero()
+
+    def set_angle_weights_to_zero(self):
+        """Sets the relevant weights and biases to zero to achieve that the first output channel
+        predicts zeros initially."""
+        with torch.no_grad():
+            if self.mlp.use_torchvision:
+                # torchvision mlp
+                self.mlp.mlp[-2].weight.data[1].zero_()
+                self.mlp.mlp[-2].bias.data[1].zero_()
+            else:
+                # torch_geometric mlp
+                self.mlp._modules["lins"][-1].weight.data[1].zero_()
+                self.mlp._modules["lins"][-1].bias.data[1].zero_()
+
     def forward(
         self, x: torch.Tensor, lframes: LFrames, batch: torch.Tensor
     ) -> Tuple[torch.Tensor, LFrames]:
+        """Forward pass of the module.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+            lframes (LFrames): LFrames object.
+            batch (torch.Tensor): Batch tensor.
+
+        Returns:
+            Tuple[torch.Tensor, LFrames]: Tuple containing the updated input tensor and LFrames object.
+        """
         out = self.mlp(x, batch=batch)
         denominator = torch.where(out[..., 0].abs() < self.eps, self.eps, out[..., 0])
         angle = torch.arctan2(out[..., 1], denominator)
