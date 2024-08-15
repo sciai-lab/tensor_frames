@@ -66,17 +66,18 @@ class EdgeLinear(torch.nn.Module):
     And at the end a linear transformation is applied on the result.
     """
 
-    def __init__(self, in_dim: int, emb_dim: int, out_dim: int) -> None:
+    def __init__(self, in_dim: int, emb_dim: int, out_dim: int, bias: bool = True) -> None:
         """Initialize the EdgeLinear module.
 
         Args:
             in_dim (int): The input dimension.
             emb_dim (int): The embedding dimension.
             out_dim (int): The output dimension.
+            bias (bool, optional): Whether to include bias terms. Defaults to True.
         """
         super().__init__()
-        self.linear1 = torch.nn.Linear(emb_dim, in_dim)
-        self.linear2 = torch.nn.Linear(in_dim, out_dim)
+        self.linear1 = torch.nn.Linear(emb_dim, in_dim, bias)
+        self.linear2 = torch.nn.Linear(in_dim, out_dim, bias)
 
     def forward(self, x: Tensor, edge_embedding: Tensor) -> Tensor:
         """Performs the forward pass of the linear neural network layer.
@@ -138,3 +139,57 @@ class HeadedEdgeLinear(torch.nn.Module):
         x = torch.mul(x, edge)
         x = self.lin_out(x)
         return x
+
+
+class AtomTypeLinear(torch.nn.Module):
+    """Linear layer with different weight matrices for different atom types."""
+
+    def __init__(self, in_dim: int, out_dim: int, num_types: int, bias: bool = True) -> None:
+        """Initializes a AtomTypeLinear module.
+
+        Args:
+            in_dim (int): The input dimension.
+            out_dim (int): The output dimension.
+            num_types (int): The number of types.
+            bias (bool, optional): Whether to include bias. Defaults to True.
+        """
+
+        super().__init__()
+        self.num_types = num_types
+        self.out_dim = out_dim
+        self.in_dim = in_dim
+
+        self.matrix = torch.nn.Parameter(torch.empty((num_types, in_dim, out_dim)))
+
+        if bias:
+            self.bias = torch.nn.Parameter(torch.empty((num_types, out_dim)))
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Resets the parameters of the linear layer."""
+
+        for i in range(self.num_types):
+            torch.nn.init.kaiming_uniform_(self.matrix[i], a=math.sqrt(5))
+            if hasattr(self, "bias"):
+                fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.matrix[i])
+                bound = 1 / math.sqrt(fan_in)
+                torch.nn.init.uniform_(self.bias[i], -bound, bound)
+
+    def forward(self, x: Tensor, types: Tensor) -> Tensor:
+        """Forward pass of the linear layer.
+
+        Args:
+            x (Tensor): Input tensor of shape (batch_size, input_size).
+            types (Tensor): Tensor of indices representing the types of the input data.
+
+        Returns:
+            Tensor: Output tensor of shape (batch_size, output_size).
+        """
+
+        out = torch.einsum("ni, nio -> no", x, self.matrix[types])
+
+        if hasattr(self, "bias"):
+            out += self.bias[types].unsqueeze(0)
+
+        return out

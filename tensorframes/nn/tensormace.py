@@ -6,7 +6,7 @@ from torch import Tensor
 from torch_geometric.nn import LayerNorm, MessagePassing
 
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.nn.linear import EdgeLinear
+from tensorframes.nn.linear import AtomTypeLinear, EdgeLinear
 from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
 
@@ -23,6 +23,7 @@ class TensorMACE(MessagePassing):
         out_tensor_reps: Union[TensorReps, Irreps],
         edge_emb_dim: int,
         hidden_dim: int,
+        num_types: int,
         max_order: int = 3,
         dropout: float = 0.0,
         bias: bool = False,
@@ -34,6 +35,7 @@ class TensorMACE(MessagePassing):
             out_tensor_reps (Union[TensorReps, Irreps]): The output tensor representations.
             edge_emb_dim (int): The dimension of the edge embeddings.
             hidden_dim (int): The dimension of the hidden layer.
+            num_types (int): The number of different atom types.
             order (int): The message passing body order. Defaults to 3.
             dropout (float, optional): The dropout rate. Defaults to 0.0.
             bias (bool, optional): Whether to include bias terms. Defaults to False.
@@ -58,15 +60,16 @@ class TensorMACE(MessagePassing):
             torch.empty(self.hidden_dim, self.max_order, self.hidden_dim)
         )
 
-        self.param_2 = torch.nn.Parameter(
-            torch.empty(self.out_dim, self.max_order, self.hidden_dim)
-        )
+        self.param_2 = torch.nn.Parameter(torch.empty(num_types, self.hidden_dim, self.max_order))
 
         if self.bias:
             self.bias_1 = torch.nn.Parameter(torch.empty(self.hidden_dim, self.max_order))
-            self.bias_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.max_order))
 
-        self.lin_skip = torch.nn.Linear(self.in_dim, self.out_dim, bias=self.bias)
+        self.lin_skip = AtomTypeLinear(
+            self.in_dim, self.out_dim, num_types=num_types, bias=self.bias
+        )
+
+        self.lin_out = torch.nn.Linear(self.hidden_dim, self.out_dim, bias=self.bias)
 
         self.layer_norm = LayerNorm(self.in_dim)
         self.dropout = torch.nn.Dropout(dropout)
@@ -97,6 +100,7 @@ class TensorMACE(MessagePassing):
     def forward(
         self,
         x: Tensor,
+        types: Tensor,
         edge_index: Tensor,
         edge_embedding: Tensor,
         lframes: LFrames,
@@ -106,6 +110,7 @@ class TensorMACE(MessagePassing):
 
         Args:
             x (Tensor): Input node features of shape (num_nodes, input_dim).
+            types (Tensor): What atomtype the each node has (num_nodes, 1) max_number is number of different types.
             edge_index (Tensor): Graph edge indices of shape (2, num_edges).
             edge_embedding (Tensor): Edge embeddings of shape (num_edges, edge_dim).
             lframes (LFrames): LFrames object containing the local frames for each node.
@@ -138,16 +143,13 @@ class TensorMACE(MessagePassing):
         # B = torch.cumprod(tmp, dim=-1)
 
         # calculate the new node features
-        # Shape param_2: (out_dim, order, hidden_dim)
+        # Shape param_2: (num_types, hidden_dim, order)
         # Shape B: (num_nodes, hidden_dim, order)
-        x = torch.einsum("ihn, onh -> ion", B, self.param_2)
+        x = torch.einsum("ihn, ihn -> ih", B, self.param_2[types])
 
-        if self.bias:
-            x = x + self.bias_2
+        x = self.lin_out(x)
 
-        x = x.sum(dim=-1)
-
-        return self.dropout(x) + self.lin_skip(skip)
+        return self.dropout(x) + self.lin_skip(skip, types)
 
     def message(self, x_j: Tensor, edge_embedding: Tensor) -> Tensor:
         """This method performs a message passing operation.
