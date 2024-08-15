@@ -44,7 +44,7 @@ class MLPWrapped(Module):
         self.use_torchvision = use_torchvision
         self.out_dim = hidden_channels[-1]
 
-        if use_torchvision:
+        if self.use_torchvision:
             self.mlp = TorchMLP(
                 in_channels=in_channels,
                 hidden_channels=hidden_channels,

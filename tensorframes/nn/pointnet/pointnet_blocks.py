@@ -270,7 +270,7 @@ def lframes_knn_interpolate(
         )  # y index are the receivers, x index are the senders
         diff = pos_x[x_idx] - pos_y[y_idx]
         squared_distance = (diff * diff).sum(dim=-1, keepdim=True)
-        weights = 1.0 / torch.clamp(squared_distance, min=1e-16)
+        weights = 1.0 / torch.clamp(squared_distance, min=1e-6)
 
     lframes_x = lframes_x.index_select(x_idx)
     lframes_y = lframes_y.index_select(y_idx)

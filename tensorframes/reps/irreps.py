@@ -168,7 +168,7 @@ class Irreps(Tuple):
                     irrep = super().__new__(cls, out)
 
             except Exception:
-                raise ValueError("Invalid irreps string")
+                raise ValueError(f"Invalid irreps string {irreps}")
 
         else:
             out = []
