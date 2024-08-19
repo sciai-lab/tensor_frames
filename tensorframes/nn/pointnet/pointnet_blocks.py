@@ -8,7 +8,7 @@ from torch_scatter import scatter_min
 
 from tensorframes.lframes import ChangeOfLFrames, LFrames
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
-from tensorframes.lframes.updating_lframes import UpdateLFramesModule
+from tensorframes.lframes.updating_lframes import QuaternionsUpdateLFrames
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
@@ -24,7 +24,7 @@ class SAModule(torch.nn.Module):
         conv (EdgeConv): EdgeConv module for point-wise feature transformation.
         center_sampler (CustomPointSampler): CustomPointSampler module for center point sampling.
         out_dim (int): Output dimension of the EdgeConv module.
-        lframes_updater (UpdateLFramesModule | None): LFrames updater module.
+        lframes_updater (QuaternionsUpdateLFrames | None): LFrames updater module.
     """
 
     def __init__(
@@ -34,7 +34,7 @@ class SAModule(torch.nn.Module):
         center_sampler: CustomPointSampler,
         max_num_neighbors: int = 64,
         lframes_learner: WrappedLearnedLFrames | None = None,
-        lframes_updater: UpdateLFramesModule | None = None,
+        lframes_updater: QuaternionsUpdateLFrames | None = None,
     ) -> None:
         """Initializes a new instance of the SAModule class.
 
@@ -44,7 +44,7 @@ class SAModule(torch.nn.Module):
             center_sampler (CustomPointSampler): CustomPointSampler module for center point sampling.
             max_num_neighbors (int, optional): Maximum number of neighbors to consider. Defaults to 64.
             lframes_learner (WrappedLearnedLFrames | None, optional): The module used for learning local frames. Defaults to None.
-            lframes_updater (UpdateLFramesModule | None, optional): LFrames updater module. Defaults to None.
+            lframes_updater (QuaternionsUpdateLFrames | None, optional): LFrames updater module. Defaults to None.
         """
         super().__init__()
         self.r = r
@@ -126,21 +126,21 @@ class GlobalSAModule(torch.nn.Module):
 
     Attributes:
         conv (EdgeConv): The EdgeConv module used for convolutional operations.
-        lframes_updater (UpdateLFramesModule | None): The module used for updating local reference frames (LFrames).
+        lframes_updater (QuaternionsUpdateLFrames | None): The module used for updating local reference frames (LFrames).
         out_dim (int): The dimension of the input tensor representations.
     """
 
     def __init__(
         self,
         conv: EdgeConv,
-        lframes_updater: UpdateLFramesModule | None = None,
+        lframes_updater: QuaternionsUpdateLFrames | None = None,
         use_skip_connections: bool = False,
     ) -> None:
         """Initializes a new instance of the GlobalSAModule class.
 
         Args:
             conv (EdgeConv): The EdgeConv module used for convolutional operations.
-            lframes_updater (UpdateLFramesModule | None, optional): The module used for updating local reference frames (LFrames).
+            lframes_updater (QuaternionsUpdateLFrames | None, optional): The module used for updating local reference frames (LFrames).
                 Defaults to None.
             use_skip_connections (bool, optional): Indicates whether to use skip connections from previous SAM layers (only for DGCNN). Defaults to False.
         """
@@ -292,7 +292,7 @@ class FPModule(torch.nn.Module):
         k (int): Number of nearest neighbors to consider during interpolation.
         reps (Union[TensorReps, Irreps]): Tensor representations or irreducible representations.
         out_dim (int): Output dimension of the MLP module.
-        lframes_updater (UpdateLFramesModule | None): Local frames updater module.
+        lframes_updater (QuaternionsUpdateLFrames | None): Local frames updater module.
     """
 
     def __init__(
@@ -300,7 +300,7 @@ class FPModule(torch.nn.Module):
         mlp: MLPWrapped,
         reps: Union[TensorReps, Irreps],
         k: int = 3,
-        lframes_updater: UpdateLFramesModule | None = None,
+        lframes_updater: QuaternionsUpdateLFrames | None = None,
     ) -> None:
         """Initializes a new instance of the FPModule class.
 
@@ -308,7 +308,7 @@ class FPModule(torch.nn.Module):
             mlp (MLPWrapped): Multi-Layer Perceptron module.
             reps (Union[TensorReps, Irreps]): Tensor representations or irreducible representations.
             k (int, optional): Number of nearest neighbors to consider during interpolation. Defaults to 3.
-            lframes_updater (UpdateLFramesModule | None, optional): Local frames updater module. Defaults to None.
+            lframes_updater (QuaternionsUpdateLFrames | None, optional): Local frames updater module. Defaults to None.
         """
         super().__init__()
         self.mlp = mlp

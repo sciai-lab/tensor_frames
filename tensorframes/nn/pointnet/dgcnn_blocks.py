@@ -5,7 +5,7 @@ from torch_geometric.nn import knn
 
 from tensorframes.lframes import LFrames
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
-from tensorframes.lframes.updating_lframes import UpdateLFramesModule
+from tensorframes.lframes.updating_lframes import QuaternionsUpdateLFrames
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.reps import TensorReps
 from tensorframes.utils.point_sampling import CustomPointSampler
@@ -21,7 +21,7 @@ class DynamicSAModule(torch.nn.Module):
         center_sampler (CustomPointSampler): The custom point sampler used for sampling center points.
         out_dim (int): The dimension of the output tensor representations.
         lframes_learner (WrappedLearnedLFrames | None): The module used for learning local frames.
-        lframes_updater (UpdateLFramesModule | None): The module used for updating local frames.
+        lframes_updater (QuaternionsUpdateLFrames | None): The module used for updating local frames.
         concat_pos_to_features (bool): Whether to concatenate positions to features.
         concat_lframes_to_features (bool): Whether to concatenate local frames to features.
         knn_feature_reps (TensorReps): The tensor representations used for k-nearest neighbor operations.
@@ -36,7 +36,7 @@ class DynamicSAModule(torch.nn.Module):
         center_sampler: CustomPointSampler,
         k: int = 20,
         lframes_learner: WrappedLearnedLFrames | None = None,
-        lframes_updater: UpdateLFramesModule | None = None,
+        lframes_updater: QuaternionsUpdateLFrames | None = None,
         transform_to_global_frame: bool = True,
         concat_pos_to_features: bool = False,
         concat_lframes_to_features: bool = False,
@@ -49,7 +49,7 @@ class DynamicSAModule(torch.nn.Module):
             center_sampler (CustomPointSampler): The custom point sampler used for sampling center points.
             k (int, optional): The number of nearest neighbors to consider. Defaults to 20.
             lframes_learner (WrappedLearnedLocalFramesModule | None, optional): The module used for learning local frames. Defaults to None.
-            lframes_updater (UpdateLFramesModule | None, optional): The module used for updating local frames. Defaults to None.
+            lframes_updater (QuaternionsUpdateLFrames | None, optional): The module used for updating local frames. Defaults to None.
             transform_to_global_frame (bool, optional): Whether to transform features to the global frame. Defaults to True.
             concat_pos_to_features (bool, optional): Whether to concatenate positions to features. Defaults to False.
             concat_lframes_to_features (bool, optional): Whether to concatenate local frames to features. Defaults to False.
