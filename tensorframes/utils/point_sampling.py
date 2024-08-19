@@ -4,13 +4,7 @@ from src.utils.general_utils import batch_to_ptr
 
 
 class RandomSampler(torch.nn.Module):
-    """Randomly samples points from a given input tensor.
-
-    Args:
-        ratio (float): The ratio of points to sample. Should be between 0 and 1.
-        seed (int, optional): The seed value for random number generation. Default is None.
-        with_replacement (bool, optional): Whether to sample points with replacement. Default is False.
-    """
+    """Randomly samples points from a given input tensor."""
 
     def __init__(
         self, ratio: float, seed: int | None = None, with_replacement: bool = False
@@ -92,7 +86,7 @@ class FPSampler(torch.nn.Module):
         self.ratio = ratio
         self.random_start = random_start
 
-    def forward(self, pos, batch=None):
+    def forward(self, pos: torch.Tensor, batch: torch.Tensor | None = None) -> torch.Tensor:
         """Performs forward pass of the point sampling module.
 
         Args:
@@ -139,7 +133,7 @@ class CustomPointSampler(torch.nn.Module):
         else:
             pass
 
-    def forward(self, *args, **kwargs):
+    def forward(self, *args, **kwargs) -> torch.Tensor:
         """Forward pass of the CustomPointSampler module.
 
         Args:
