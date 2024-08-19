@@ -1,48 +1,36 @@
 import warnings
-from typing import Tuple
+from typing import Tuple, Union
 
 import torch
 
 from tensorframes.lframes import LFrames
 from tensorframes.nn.mlp import MLPWrapped
-from tensorframes.reps.utils import parse_reps
+from tensorframes.reps import Irreps, TensorReps
 from tensorframes.utils.quaternions import quaternions_to_matrix
 
 
-class UpdateLFramesModule(torch.nn.Module):
-    """Dummy class for UpdateLFramesModule."""
-
-    def __init__(self):
-        """To be defined."""
-        super().__init__()
-
-    def forward(
-        self, x: torch.Tensor | None, lframes: LFrames, batch: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """To be defined."""
-        return x, lframes
-
-
 class QuaternionsUpdateLFrames(torch.nn.Module):
-    """Module for updating LFrames using quaternions.
-
-    Attributes:
-        in_reps (str): Input representations.
-        eps (float): Small value to avoid division by zero.
-        mlp (MLPWrapped): MLP module for feature transformation.
-        coeffs_transform (Union[IrrepsTransform, TensorRepsTransform]): Transformation class for coefficients.
-    """
+    """Module for updating LFrames using quaternions."""
 
     def __init__(
         self,
-        in_reps,
-        hidden_channels,
-        init_zero_angle=False,
-        eps=1e-6,
-        **mlp_kwargs,
+        in_reps: Union[TensorReps, Irreps],
+        hidden_channels: list,
+        init_zero_angle: bool = False,
+        eps: float = 1e-6,
+        **mlp_kwargs
     ):
+        """Initialize the UpdatingLFrames module.
+
+        Args:
+            in_reps (list): List of input representations.
+            hidden_channels (list): List of hidden channel sizes for the MLP.
+            init_zero_angle (bool, optional): Whether to initialize angle weights to zero. Defaults to False.
+            eps (float, optional): Small value to avoid division by zero. Defaults to 1e-6.
+            **mlp_kwargs: Additional keyword arguments for the MLPWrapped module.
+        """
         super().__init__()
-        self.in_reps = parse_reps(in_reps)
+        self.in_reps = in_reps
         self.eps = eps
 
         self.mlp = MLPWrapped(
@@ -53,7 +41,6 @@ class QuaternionsUpdateLFrames(torch.nn.Module):
         self.coeffs_transform = self.in_reps.get_transform_class()
 
         if init_zero_angle:
-            # warning that activation mustn't be ReLU
             warnings.warn(
                 "Make sure that the activation function is NOT ReLU, When using init_zero_angle = True."
             )
