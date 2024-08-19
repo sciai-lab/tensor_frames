@@ -7,7 +7,6 @@ from tensorframes.nn.embedding.radial import compute_edge_vec
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps import Irreps, TensorReps
-from tensorframes.reps.utils import parse_reps
 
 
 class EdgeConv(TFMessagePassing):
@@ -39,7 +38,7 @@ class EdgeConv(TFMessagePassing):
 
     def __init__(
         self,
-        in_reps: Union[TensorReps, Irreps, str],
+        in_reps: Union[TensorReps, Irreps],
         hidden_channels: List[int],
         out_channels: int,
         aggr: str = "add",
@@ -56,7 +55,7 @@ class EdgeConv(TFMessagePassing):
         """Initialize the MLPConv layer.
 
         Args:
-            in_reps (Union[TensorReps, Irreps, str]): Input tensor representations or irreps.
+            in_reps (Union[TensorReps, Irreps]): Input tensor representations or irreps.
             hidden_channels (list[int]): List of hidden channel sizes.
             out_channels (int): Number of output channels.
             aggr (str, optional): Aggregation method. Defaults to "add".
@@ -70,7 +69,7 @@ class EdgeConv(TFMessagePassing):
             use_edge_feature_product (bool, optional): Whether to use edge feature product. Defaults to False.
             **mlp_kwargs: Additional keyword arguments for the MLP layers.
         """
-        self.in_reps = parse_reps(in_reps)
+        self.in_reps = in_reps
         super().__init__(aggr=aggr, params_dict={"x": {"type": "local", "rep": self.in_reps}})
 
         self.radial_module = radial_module

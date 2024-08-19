@@ -11,7 +11,7 @@ from tensorframes.nn.embedding.radial import RadialEmbedding
 from tensorframes.nn.envelope import EnvelopePoly
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
-from tensorframes.reps.utils import extract_even_scalar_mask_from_reps, parse_reps
+from tensorframes.reps.utils import extract_even_scalar_mask_from_reps
 
 
 class LearnedGramSchmidtLFrames(MessagePassing):
@@ -92,7 +92,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
 
     def forward(
         self,
-        x: Tuple[Tensor, Tensor],
+        x: Union[Tensor, Tuple[Tensor, Tensor]],
         radial: Tensor,
         pos: Union[Tensor, Tuple[Tensor, Tensor]],
         edge_index: Tensor,
@@ -102,12 +102,12 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         """Forward pass of the learning_lframes module.
 
         Args:
-            x (Tensor, Tuple): Input tensor, can only be even scalars for the layer to be equivariant
+            x (Tensor, Tuple[Tensor, Tensor]): Input tensor, can only be even scalars for the layer to be equivariant
             radial (Tensor): Radial tensor.
-            pos (Tensor, Tuple): Position tensor.
+            pos (Tensor, Tuple[Tensor, Tensor]): Position tensor.
             edge_index (Tensor): Edge index tensor.
             edge_attr (Tensor | None, optional): Edge attribute tensor, can only be even scalars for the layer to be equivariant. Defaults to None.
-            batch (Tensor, Tuple | None, optional): Batch tensor. Defaults to None.
+            batch (Tensor, Tuple[Tensor, Tensor] | None, optional): Batch tensor. Defaults to None.
 
         Returns:
             LFrames: The local frames object containing the local frames.
@@ -204,11 +204,11 @@ class WrappedLearnedLFrames(Module):
 
     def __init__(
         self,
-        in_reps: Union[TensorReps, Irreps, str],
+        in_reps: Union[TensorReps, Irreps],
         hidden_channels: list[int],
         radial_module: RadialEmbedding,
         max_radius: float = None,
-        edge_attr_tensor_reps: Union[TensorReps, str] = None,
+        edge_attr_tensor_reps: Union[TensorReps, Irreps] = None,
         max_num_neighbors: int = 64,
         flatten: bool = True,
         **kwargs,
@@ -216,17 +216,17 @@ class WrappedLearnedLFrames(Module):
         """Initializes the WrappedLearnedLocalFramesModule.
 
         Args:
-            in_reps (Union[TensorReps, Irreps, str]): The input representations.
+            in_reps (Union[TensorReps, Irreps]): The input representations.
             hidden_channels (list[int]): The hidden channels for the LearnedGramSchmidtLFrames module.
             max_radius (float, optional): The maximum radius for the radius search. Defaults to None.
             radial_module (torch.nn.Module, optional): The radial module for the radial embedding. Defaults to None.
-            edge_attr_tensor_reps (Union[TensorReps, str], optional): The edge attribute tensor representations. Defaults to None.
+            edge_attr_tensor_reps (Union[TensorReps, Irreps], optional): The edge attribute tensor representations. Defaults to None.
             max_num_neighbors (int, optional): The maximum number of neighbors for the radius search. Defaults to 64.
             flatten (bool, optional): Whether to flatten the output. Defaults to True.
             **kwargs: Additional keyword arguments of the LearnedGramSchmidtLFrames module.
         """
         super().__init__()
-        self.in_reps = parse_reps(in_reps)
+        self.in_reps = in_reps
         self.scalar_x_mask = extract_even_scalar_mask_from_reps(self.in_reps)
         self.scalar_x_dim = torch.sum(self.scalar_x_mask).item()
         self.scalar_edge_attr_mask = (

@@ -12,7 +12,6 @@ from tensorframes.lframes.updating_lframes import UpdateLFramesModule
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
-from tensorframes.reps.utils import parse_reps
 from tensorframes.utils.point_sampling import CustomPointSampler
 
 
@@ -380,7 +379,7 @@ class FinalLframesLayer(torch.nn.Module):
             **mlp_kwargs: Additional keyword arguments for the MLP module.
         """
         super().__init__()
-        out_reps = parse_reps(out_reps)
+        out_reps = out_reps
         if mlp_channels is None:
             self.mlp = None
             self.linear = torch.nn.Linear(in_channels, out_reps.dim)
