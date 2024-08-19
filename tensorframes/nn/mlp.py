@@ -44,7 +44,7 @@ class MLPWrapped(Module):
         self.use_torchvision = use_torchvision
         self.out_dim = hidden_channels[-1]
 
-        if use_torchvision:
+        if self.use_torchvision:
             self.mlp = TorchMLP(
                 in_channels=in_channels,
                 hidden_channels=hidden_channels,
@@ -116,7 +116,7 @@ class MLP(torch.nn.Module):
         self.hidden_layers = hidden_layers.copy()
         self.hidden_layers.append(out_reps.dim)
 
-        self.mlp = TorchMLP(in_reps.dim, hidden_layers, **mlp_kwargs)
+        self.mlp = TorchMLP(in_reps.dim, self.hidden_layers, **mlp_kwargs)
 
     def forward(self, x: Tensor) -> Tensor:
         """Performs a forward pass through the MLP network.

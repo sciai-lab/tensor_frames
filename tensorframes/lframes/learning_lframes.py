@@ -29,7 +29,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         even_scalar_edge_dim: int = 0,
         concat_receiver: bool = True,
         exceptional_choice: str = "random",
-        anchor_z_axis: bool = False,
+        anchor_z_axis: bool = True,
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
         **mlp_kwargs: dict,
     ) -> None:
@@ -170,7 +170,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             if self.concat_receiver:
                 inp = torch.cat([x_i, x_j, radial], dim=-1)
             else:
-                inp = torch.cat([x_i, radial], dim=-1)
+                inp = torch.cat([x_j, radial], dim=-1)
 
         if self.even_scalar_edge_dim > 0:
             inp = torch.cat([inp, edge_attr], dim=-1)
@@ -257,6 +257,8 @@ class WrappedLearnedLFrames(Module):
             **kwargs,
         )
 
+        self.transform_class = self.in_reps.get_transform_class()
+
     def forward(
         self,
         x: Union[Tensor, PairTensor],
@@ -288,7 +290,7 @@ class WrappedLearnedLFrames(Module):
             assert self.max_radius is None, "max_radius should be None if edge_index is provided"
         radial = self.radial_module(pos, edge_index)
         if edge_attr is not None:
-            edge_attr = edge_attr[self.scalar_edge_attr_mask]
+            edge_attr = edge_attr[:, self.scalar_edge_attr_mask]
 
         if not isinstance(x, tuple):
             x = (x, x)
@@ -297,14 +299,10 @@ class WrappedLearnedLFrames(Module):
         if not isinstance(batch, tuple):
             batch = (batch, batch)
 
-        x_scalar = []
-        for xi in x:
-            if xi is None or self.scalar_x_dim == 0:
-                x_scalar.append(None)
-            else:
-                x_scalar.append(xi[:, self.scalar_x_mask])
-        x_scalar = tuple(x_scalar)
-
+        x_scalar = (
+            None if x[0] is None else x[0][:, self.scalar_x_mask],
+            None if x[1] is None else x[1][:, self.scalar_x_mask],
+        )
         lframes = self.lframes_module(
             x=x_scalar,
             pos=pos,
@@ -315,6 +313,6 @@ class WrappedLearnedLFrames(Module):
         )
 
         # transform the features from the global frame into the new local frame:
-        x_transformed = self.in_reps.get_transform_class()(x[1], lframes)
+        x_transformed = self.transform_class(x[1], lframes)
 
         return x_transformed, lframes

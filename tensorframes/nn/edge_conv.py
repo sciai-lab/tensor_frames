@@ -231,7 +231,13 @@ class EdgeConv(TFMessagePassing):
             )
 
         if self.edge_feature_product_layer is None:
-            x = edge_features if x is None else torch.cat((x, edge_features), dim=-1)
+            if edge_features is None:
+                assert x is not None, "x and edge_features are both None"
+            else:
+                if x is None:
+                    x = edge_features
+                else:
+                    x = torch.cat((x, edge_features), dim=-1)
             x = self.mlp1(x, batch=batch_i.view(-1))
         else:
             x = self.edge_feature_product_layer(edge_features) * self.mlp1(

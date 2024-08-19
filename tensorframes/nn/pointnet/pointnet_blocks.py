@@ -194,14 +194,13 @@ class GlobalSAModule(torch.nn.Module):
                 x = torch.cat([x, layer_output["x"]], dim=-1)
 
         x_dst = None if x is None else x[idx]
+        lframes_dst = lframes.index_select(idx)
         if self.lframes_updater is not None:
             x_dst, lframes_dst = self.lframes_updater(
-                lframes=lframes[idx],
+                lframes=lframes_dst,
                 x=x_dst,
                 batch=batch[idx],
             )
-        else:
-            lframes_dst = lframes.index_select(idx)
 
         x = self.conv(
             x=(x, x_dst),
@@ -272,7 +271,7 @@ def lframes_knn_interpolate(
         )  # y index are the receivers, x index are the senders
         diff = pos_x[x_idx] - pos_y[y_idx]
         squared_distance = (diff * diff).sum(dim=-1, keepdim=True)
-        weights = 1.0 / torch.clamp(squared_distance, min=1e-16)
+        weights = 1.0 / torch.clamp(squared_distance, min=1e-6)
 
     lframes_x = lframes_x.index_select(x_idx)
     lframes_y = lframes_y.index_select(y_idx)

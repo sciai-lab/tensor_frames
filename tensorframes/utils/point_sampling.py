@@ -1,6 +1,7 @@
 import torch
 import torch_geometric as tg
-from src.utils.general_utils import batch_to_ptr
+
+from tensorframes.utils import batch_to_ptr
 
 
 class RandomSampler(torch.nn.Module):
