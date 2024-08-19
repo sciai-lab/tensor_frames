@@ -1,22 +1,17 @@
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Union
 
 import torch
+from torch_geometric.typing import PairTensor
 
 from tensorframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import compute_edge_vec
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps import Irreps, TensorReps
-from tensorframes.reps.utils import parse_reps
 
 
 class EdgeConv(TFMessagePassing):
     """Multi-Layer Perceptron Convolutional layer for graph neural networks.
-
-    This module can be used to implement the following layers:
-    MLP2(f_i, aggr(MLP1(f_i, transformed f_j, radial_embedding, angular_embedding)))
-    or alternatively:
-    MLP2(f_i, aggr(MLP1(f_i, transformed f_j) odot linear(radial_embedding, angular_embedding))).
 
     Attributes:
         in_reps (Union[TensorReps, Irreps, str]): Input tensor representations or irreps.
@@ -29,17 +24,11 @@ class EdgeConv(TFMessagePassing):
         mlp2 (MLP): Second MLP layer.
         out_dim (int): Number of output channels.
         edge_feature_product_layer (torch.nn.Linear): Edge feature product layer.
-
-    Methods:
-        forward(x, pos, lframes, batch, edge_index) -> torch.Tensor:
-            Forward pass of the MLPConv layer.
-        message(x_i, x_j, lframes_i, lframes_j, batch_i, edge_vec, radial_embedding, angular_embedding) -> torch.Tensor:
-            Message passing function of the MLPConv layer.
     """
 
     def __init__(
         self,
-        in_reps: Union[TensorReps, Irreps, str],
+        in_reps: Union[TensorReps, Irreps],
         hidden_channels: List[int],
         out_channels: int,
         aggr: str = "add",
@@ -53,10 +42,15 @@ class EdgeConv(TFMessagePassing):
         use_edge_feature_product: bool = False,
         **mlp_kwargs: Dict
     ):
-        """Initialize the MLPConv layer.
+        """
+        Initialize the MLPConv layer.
+        This module can be used to implement the following layers:
+        MLP2(f_i, aggr(MLP1(f_i, transformed f_j, radial_embedding, angular_embedding)))
+        or alternatively:
+        MLP2(f_i, aggr(MLP1(f_i, transformed f_j) odot linear(radial_embedding, angular_embedding))).
 
         Args:
-            in_reps (Union[TensorReps, Irreps, str]): Input tensor representations or irreps.
+            in_reps (Union[TensorReps, Irreps]): Input tensor representations or irreps.
             hidden_channels (list[int]): List of hidden channel sizes.
             out_channels (int): Number of output channels.
             aggr (str, optional): Aggregation method. Defaults to "add".
@@ -70,7 +64,7 @@ class EdgeConv(TFMessagePassing):
             use_edge_feature_product (bool, optional): Whether to use edge feature product. Defaults to False.
             **mlp_kwargs: Additional keyword arguments for the MLP layers.
         """
-        self.in_reps = parse_reps(in_reps)
+        self.in_reps = in_reps
         super().__init__(aggr=aggr, params_dict={"x": {"type": "local", "rep": self.in_reps}})
 
         self.radial_module = radial_module
@@ -125,19 +119,19 @@ class EdgeConv(TFMessagePassing):
 
     def forward(
         self,
-        x: Union[torch.Tensor, Tuple],
-        pos: Union[torch.Tensor, Tuple],
-        lframes: Union[LFrames, Tuple],
-        batch: Union[torch.Tensor, Tuple],
+        x: Union[torch.Tensor, PairTensor],
+        pos: Union[torch.Tensor, PairTensor],
+        lframes: Union[LFrames, PairTensor],
+        batch: Union[torch.Tensor, PairTensor],
         edge_index: torch.Tensor,
     ) -> torch.Tensor:
         """Forward pass of the MLPConv layer.
 
         Args:
-            x (Union[torch.Tensor, Tuple]): Input node features.
-            pos (Union[torch.Tensor, Tuple]): Node positions.
-            lframes (Union[LFrames, Tuple]): Local frames.
-            batch (Union[torch.Tensor, Tuple]): Batch indices.
+            x (Union[torch.Tensor, PairTensor]): Input node features.
+            pos (Union[torch.Tensor, PairTensor]): Node positions.
+            lframes (Union[LFrames, PairTensor]): Local frames.
+            batch (Union[torch.Tensor, PairTensor]): Batch indices.
             edge_index (torch.Tensor): Edge indices.
 
         Returns:

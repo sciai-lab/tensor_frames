@@ -12,7 +12,6 @@ from tensorframes.lframes.updating_lframes import UpdateLFramesModule
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
-from tensorframes.reps.utils import parse_reps
 from tensorframes.utils.point_sampling import CustomPointSampler
 
 
@@ -22,9 +21,9 @@ class SAModule(torch.nn.Module):
     Attributes:
         r (float): Radius for neighbor sampling.
         max_num_neighbors (int): Maximum number of neighbors to consider.
-        conv (MLPConv): MLPConv module for point-wise feature transformation.
+        conv (EdgeConv): EdgeConv module for point-wise feature transformation.
         center_sampler (CustomPointSampler): CustomPointSampler module for center point sampling.
-        out_dim (int): Output dimension of the MLPConv module.
+        out_dim (int): Output dimension of the EdgeConv module.
         lframes_updater (UpdateLFramesModule | None): LFrames updater module.
     """
 
@@ -41,7 +40,7 @@ class SAModule(torch.nn.Module):
 
         Args:
             r (float): Radius for neighbor sampling.
-            conv (MLPConv): MLPConv module for point-wise feature transformation.
+            conv (EdgeConv): EdgeConv module for point-wise feature transformation.
             center_sampler (CustomPointSampler): CustomPointSampler module for center point sampling.
             max_num_neighbors (int, optional): Maximum number of neighbors to consider. Defaults to 64.
             lframes_learner (WrappedLearnedLFrames | None, optional): The module used for learning local frames. Defaults to None.
@@ -126,7 +125,7 @@ class GlobalSAModule(torch.nn.Module):
     computing the center of mass (COM) of the remaining points, and choosing the point closest to the COM as the final center.
 
     Attributes:
-        conv (MLPConv): The MLPConv module used for convolutional operations.
+        conv (EdgeConv): The EdgeConv module used for convolutional operations.
         lframes_updater (UpdateLFramesModule | None): The module used for updating local reference frames (LFrames).
         out_dim (int): The dimension of the input tensor representations.
     """
@@ -140,7 +139,7 @@ class GlobalSAModule(torch.nn.Module):
         """Initializes a new instance of the GlobalSAModule class.
 
         Args:
-            conv (MLPConv): The MLPConv module used for convolutional operations.
+            conv (EdgeConv): The EdgeConv module used for convolutional operations.
             lframes_updater (UpdateLFramesModule | None, optional): The module used for updating local reference frames (LFrames).
                 Defaults to None.
             use_skip_connections (bool, optional): Indicates whether to use skip connections from previous SAM layers (only for DGCNN). Defaults to False.
@@ -225,34 +224,36 @@ def lframes_knn_interpolate(
     k: int = 3,
     num_workers: int = 1,
 ):
-    r"""The k-NN interpolation from the `"PointNet++: Deep Hierarchical
+    """The k-NN interpolation from the `"PointNet++: Deep Hierarchical
     Feature Learning on Point Sets in a Metric Space"
     <https://arxiv.org/abs/1706.02413>`_ paper (modified to handle local frames).
-    For each point :math:`y` with position :math:`\mathbf{p}(y)`, its
-    interpolated features :math:`\mathbf{f}(y)` are given by
+    For each point :math:`y` with position :math:`\\mathbf{p}(y)`, its
+    interpolated features :math:`\\mathbf{f}(y)` are given by
 
     .. math::
-        \mathbf{f}(y) = \frac{\sum_{i=1}^k w(x_i) \mathbf{f}(x_i)}{\sum_{i=1}^k
-        w(x_i)} \textrm{, where } w(x_i) = \frac{1}{d(\mathbf{p}(y),
-        \mathbf{p}(x_i))^2}
+        \\mathbf{f}(y) = \frac{\\sum_{i=1}^k w(x_i) \\mathbf{f}(x_i)}{\\sum_{i=1}^k
+        w(x_i)} \textrm{, where } w(x_i) = \frac{1}{d(\\mathbf{p}(y),
+        \\mathbf{p}(x_i))^2}
 
-    and :math:`\{ x_1, \ldots, x_k \}` denoting the :math:`k` nearest points
+    and :math:`\\{ x_1, \\ldots, x_k \\}` denoting the :math:`k` nearest points
     to :math:`y`.
 
     Args:
         x (torch.Tensor): Node feature matrix
-            :math:`\mathbf{X} \in \mathbb{R}^{N \times F}`.
+            :math:`\\mathbf{X} \\in \\mathbb{R}^{N \times F}`.
         pos_x (torch.Tensor): Node position matrix
-            :math:`\in \mathbb{R}^{N \times d}`.
+            :math:`\\in \\mathbb{R}^{N \times d}`.
         pos_y (torch.Tensor): Upsampled node position matrix
-            :math:`\in \mathbb{R}^{M \times d}`.
+            :math:`\\in \\mathbb{R}^{M \times d}`.
+        lframes_x (LFrames): Local frames of the input nodes.
+        lframes_y (LFrames): Local frames of the upsampled nodes.
         batch_x (torch.Tensor, optional): Batch vector
-            :math:`\mathbf{b_x} \in {\{ 0, \ldots, B-1\}}^N`, which assigns
-            each node from :math:`\mathbf{X}` to a specific example.
+            :math:`\\mathbf{b_x} \\in {\\{ 0, \\ldots, B-1\\}}^N`, which assigns
+            each node from :math:`\\mathbf{X}` to a specific example.
             (default: `None`)
         batch_y (torch.Tensor, optional): Batch vector
-            :math:`\mathbf{b_y} \in {\{ 0, \ldots, B-1\}}^N`, which assigns
-            each node from :math:`\mathbf{Y}` to a specific example.
+            :math:`\\mathbf{b_y} \\in {\\{ 0, \\ldots, B-1\\}}^N`, which assigns
+            each node from :math:`\\mathbf{Y}` to a specific example.
             (default: `None`)
         k (int, optional): Number of neighbors. (default: `3`)
         num_workers (int, optional): Number of workers to use for computation.
@@ -287,7 +288,7 @@ class FPModule(torch.nn.Module):
     """Feature Propagation Module (FPModule) for PointNet architecture.
 
     Attributes:
-        mlp (MLP): Multi-Layer Perceptron module.
+        mlp (MLPWrapped): Multi-Layer Perceptron module.
         k (int): Number of nearest neighbors to consider during interpolation.
         reps (Union[TensorReps, Irreps]): Tensor representations or irreducible representations.
         out_dim (int): Output dimension of the MLP module.
@@ -304,7 +305,7 @@ class FPModule(torch.nn.Module):
         """Initializes a new instance of the FPModule class.
 
         Args:
-            mlp (MLP): Multi-Layer Perceptron module.
+            mlp (MLPWrapped): Multi-Layer Perceptron module.
             reps (Union[TensorReps, Irreps]): Tensor representations or irreducible representations.
             k (int, optional): Number of nearest neighbors to consider during interpolation. Defaults to 3.
             lframes_updater (UpdateLFramesModule | None, optional): Local frames updater module. Defaults to None.
@@ -379,7 +380,7 @@ class FinalLframesLayer(torch.nn.Module):
             **mlp_kwargs: Additional keyword arguments for the MLP module.
         """
         super().__init__()
-        out_reps = parse_reps(out_reps)
+        out_reps = out_reps
         if mlp_channels is None:
             self.mlp = None
             self.linear = torch.nn.Linear(in_channels, out_reps.dim)
