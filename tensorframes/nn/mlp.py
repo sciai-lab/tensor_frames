@@ -116,7 +116,7 @@ class MLP(torch.nn.Module):
         self.hidden_layers = hidden_layers.copy()
         self.hidden_layers.append(out_reps.dim)
 
-        self.mlp = TorchMLP(in_reps.dim, hidden_layers, **mlp_kwargs)
+        self.mlp = TorchMLP(in_reps.dim, self.hidden_layers, **mlp_kwargs)
 
     def forward(self, x: Tensor) -> Tensor:
         """Performs a forward pass through the MLP network.
