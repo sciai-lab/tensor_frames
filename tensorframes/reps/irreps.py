@@ -382,6 +382,10 @@ class IrrepsTransform(Module):
             Tensor: The transformed coefficients.
         """
 
+        if coeffs is None:
+            assert self.irreps.dim == 0, "No coeffs are provided for non-trivial transform"
+            return None
+
         if inplace:
             output_coeffs = coeffs
         else:
