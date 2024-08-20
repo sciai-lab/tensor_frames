@@ -15,10 +15,10 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
     """Module for updating LFrames using Gram-Schmidt orthogonalization."""
 
     def __init__(self, in_reps: Union[TensorReps, Irreps], hidden_channels: list, **mlp_kwargs):
-        """Initialize the UpdatingLFrames module.
+        """Initialize the GramSchmidtUpdateLFrames module.
 
         Args:
-            in_reps (list): List of input representations.
+            in_reps (Union[TensorReps, Irreps]): List of input representations.
             hidden_channels (list): List of hidden channel sizes for the MLP.
             **mlp_kwargs: Additional keyword arguments for the MLPWrapped module.
         """
@@ -62,10 +62,10 @@ class AngleUpdateLFrames(torch.nn.Module):
     """Module for updating LFrames using angles."""
 
     def __init__(self, in_reps: Union[TensorReps, Irreps], hidden_channels: list, **mlp_kwargs):
-        """Initialize the UpdatingLFrames module.
+        """Initialize the AngleUpdateLFrames module.
 
         Args:
-            in_reps (list): List of input representations.
+            in_reps (Union[TensorReps, Irreps]): List of input representations.
             hidden_channels (list): List of hidden channel sizes for the MLP.
             **mlp_kwargs: Additional keyword arguments for the MLPWrapped module.
         """
@@ -114,10 +114,10 @@ class QuaternionsUpdateLFrames(torch.nn.Module):
         eps: float = 1e-6,
         **mlp_kwargs
     ):
-        """Initialize the UpdatingLFrames module.
+        """Initialize the QuaternionsUpdateLFrames module.
 
         Args:
-            in_reps (list): List of input representations.
+            in_reps (Union[TensorReps, Irreps]): List of input representations.
             hidden_channels (list): List of hidden channel sizes for the MLP.
             init_zero_angle (bool, optional): Whether to initialize angle weights to zero. Defaults to False.
             eps (float, optional): Small value to avoid division by zero. Defaults to 1e-6.
