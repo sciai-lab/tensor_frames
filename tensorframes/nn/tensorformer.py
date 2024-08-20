@@ -39,6 +39,7 @@ class TensorFormer(TFMessagePassing):
         envelope: Module | None = None,
         softmax: bool = False,
         attention_weight_dropout: float = 0.0,
+        bias: bool = True,
     ) -> None:
         """Initialize the TensorFormer model.
 
@@ -59,6 +60,7 @@ class TensorFormer(TFMessagePassing):
             envelope (Module, optional): The envelope function for radial basis functions. Defaults to EnvelopePoly(5).
             softmax (bool, optional): Whether to apply softmax to attention weights if not uses SiLU. Defaults to False.
             attention_weight_dropout (float, optional): The dropout rate for attention weights. Defaults to 0.0.
+            bias (bool, optional): Whether to include bias terms. Defaults to True.
         """
 
         super().__init__(params_dict={"x": {"type": "local", "rep": tensor_reps}})
@@ -75,6 +77,7 @@ class TensorFormer(TFMessagePassing):
             in_dim=self.dim * 2,
             emb_dim=edge_embedding_dim,
             out_dim=(hidden_value_dim + hidden_scalar_dim) * num_heads,
+            bias=bias,
         )
 
         self.scalar_norm = LayerNorm(hidden_scalar_dim * num_heads)
@@ -84,7 +87,9 @@ class TensorFormer(TFMessagePassing):
         else:
             self.act_scalar = scalar_activation_function
 
-        self.lin_scalar = HeadedLinear(in_dim=hidden_scalar_dim, out_dim=1, num_heads=num_heads)
+        self.lin_scalar = HeadedLinear(
+            in_dim=hidden_scalar_dim, out_dim=1, num_heads=num_heads, bias=bias
+        )
 
         if value_activation_function is None:
             self.act_value = torch.nn.SiLU()
@@ -96,9 +101,10 @@ class TensorFormer(TFMessagePassing):
             emb_dim=edge_embedding_dim,
             out_dim=self.hidden_value_dim,
             num_heads=self.num_heads,
+            bias=bias,
         )
 
-        self.lin_out = Linear(self.hidden_value_dim * num_heads, self.dim)
+        self.lin_out = Linear(self.hidden_value_dim * num_heads, self.dim, bias=bias)
 
         mlp_hidden_layers = hidden_layers.copy()
 
