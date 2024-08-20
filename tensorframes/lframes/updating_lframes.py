@@ -2,11 +2,57 @@ import warnings
 from typing import Tuple, Union
 
 import torch
+from e3nn.o3 import angles_to_matrix
 
 from tensorframes.lframes import LFrames
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
 from tensorframes.utils.quaternions import quaternions_to_matrix
+
+
+class AngleUpdateLFrames(torch.nn.Module):
+    """Module for updating LFrames using angles."""
+
+    def __init__(self, in_reps: Union[TensorReps, Irreps], hidden_channels: list, **mlp_kwargs):
+        """Initialize the UpdatingLFrames module.
+
+        Args:
+            in_reps (list): List of input representations.
+            hidden_channels (list): List of hidden channel sizes for the MLP.
+            **mlp_kwargs: Additional keyword arguments for the MLPWrapped module.
+        """
+        super().__init__()
+        self.in_reps = in_reps
+
+        self.mlp = MLPWrapped(
+            in_channels=self.in_reps.dim,
+            hidden_channels=hidden_channels + [3],
+            **mlp_kwargs,
+        )
+
+        self.coeffs_transform = self.in_reps.get_transform_class()
+
+    def forward(
+        self, x: torch.Tensor, lframes: LFrames, batch: torch.Tensor
+    ) -> Tuple[torch.Tensor, LFrames]:
+        """Forward pass of the module.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+            lframes (LFrames): LFrames object.
+            batch (torch.Tensor): Batch tensor.
+
+        Returns:
+            Tuple[torch.Tensor, LFrames]: Tuple containing the updated input tensor and LFrames object.
+        """
+        out = self.mlp(x, batch=batch)
+        angles = 2 * torch.atan(out)
+        rot_matr = angles_to_matrix(angles[:, 0], angles[:, 1], angles[:, 2])
+
+        new_lframes = LFrames(torch.einsum("ijk, ikn -> ijn", rot_matr, lframes.matrices))
+        new_x = self.coeffs_transform(x, LFrames(rot_matr))
+
+        return new_x, new_lframes
 
 
 class QuaternionsUpdateLFrames(torch.nn.Module):
