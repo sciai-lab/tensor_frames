@@ -234,6 +234,18 @@ class TensorReps(Tuple):
         return sum(mul_ir.mul for mul_ir in self)
 
     @property
+    def is_sorted(self) -> bool:
+        """
+        bool: Whether the tensor reps are sorted by the order of the reps.
+        """
+        if len(self) <= 1:
+            return True
+        else:
+            return all(
+                mul_ir.rep.order <= self[i + 1].rep.order for i, mul_ir in enumerate(self[:-1])
+            )
+
+    @property
     def reps(self) -> set:
         """Set[TensorRep]: The set of tensor reps."""
         return {rep for _, rep in self}
@@ -329,10 +341,7 @@ class TensorRepsTransform(Module):
 
         # sort start indices and reps by angular momentum largest first, n_masks can also be precomputed
         self.sorted_n = sorted(n_start_index_dict.keys(), reverse=True)
-        self.is_sorted = all(
-            mul_reps.rep.order == self.sorted_n[::-1][i]
-            for i, mul_reps in enumerate(self.tensor_reps)
-        )
+        self.is_sorted = self.tensor_reps.is_sorted
 
         self.n_masks = []
         self.n_muls = []
