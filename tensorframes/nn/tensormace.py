@@ -6,7 +6,7 @@ from torch import Tensor
 from torch_geometric.nn import LayerNorm, MessagePassing
 
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.nn.linear import EdgeLinear
+from tensorframes.nn.linear import AtomTypeLinear, EdgeLinear
 from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
 
@@ -23,9 +23,11 @@ class TensorMACE(MessagePassing):
         out_tensor_reps: Union[TensorReps, Irreps],
         edge_emb_dim: int,
         hidden_dim: int,
+        num_types: int,
         max_order: int = 3,
         dropout: float = 0.0,
         bias: bool = False,
+        atom_wise: bool = False,
     ) -> None:
         """Initialize a TensorMace object.
 
@@ -34,9 +36,11 @@ class TensorMACE(MessagePassing):
             out_tensor_reps (Union[TensorReps, Irreps]): The output tensor representations.
             edge_emb_dim (int): The dimension of the edge embeddings.
             hidden_dim (int): The dimension of the hidden layer.
+            num_types (int): The number of different atom types.
             order (int): The message passing body order. Defaults to 3.
             dropout (float, optional): The dropout rate. Defaults to 0.0.
             bias (bool, optional): Whether to include bias terms. Defaults to False.
+            atom_wise (bool, optional): Whether to include atom-wise linear layer. Defaults to False.
         """
         super().__init__(
             params_dict={
@@ -58,15 +62,26 @@ class TensorMACE(MessagePassing):
             torch.empty(self.hidden_dim, self.max_order, self.hidden_dim)
         )
 
-        self.param_2 = torch.nn.Parameter(
-            torch.empty(self.out_dim, self.max_order, self.hidden_dim)
-        )
-
         if self.bias:
             self.bias_1 = torch.nn.Parameter(torch.empty(self.hidden_dim, self.max_order))
-            self.bias_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.max_order))
 
-        self.lin_skip = torch.nn.Linear(self.in_dim, self.out_dim, bias=self.bias)
+        self.atom_wise = atom_wise
+        if atom_wise:
+            self.param_2 = torch.nn.Parameter(
+                torch.empty(num_types, self.hidden_dim, self.max_order)
+            )
+            self.lin_skip = AtomTypeLinear(
+                self.in_dim, self.out_dim, num_types=num_types, bias=self.bias
+            )
+        else:
+            self.param_2 = torch.nn.Parameter(
+                torch.empty(self.out_dim, self.max_order, self.hidden_dim)
+            )
+            if self.bias:
+                self.bias_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.max_order))
+            self.lin_skip = torch.nn.Linear(self.in_dim, self.out_dim, bias=self.bias)
+
+        self.lin_out = torch.nn.Linear(self.hidden_dim, self.out_dim, bias=self.bias)
 
         self.layer_norm = LayerNorm(self.in_dim)
         self.dropout = torch.nn.Dropout(dropout)
@@ -101,6 +116,7 @@ class TensorMACE(MessagePassing):
         edge_embedding: Tensor,
         lframes: LFrames,
         batch: Tensor | None = None,
+        types: Tensor | None = None,
     ) -> Tensor:
         """Forward pass of the TensorMACE layer.
 
@@ -110,6 +126,7 @@ class TensorMACE(MessagePassing):
             edge_embedding (Tensor): Edge embeddings of shape (num_edges, edge_dim).
             lframes (LFrames): LFrames object containing the local frames for each node.
             batch (Tensor, optional): Batch tensor of shape (num_nodes,). Defaults to None.
+            types (Tensor, optional): Atom type tensor of shape (num_nodes,). Defaults to None.
 
         Returns:
             Tensor: Output node features of shape (num_nodes, output_dim).
@@ -138,16 +155,25 @@ class TensorMACE(MessagePassing):
         # B = torch.cumprod(tmp, dim=-1)
 
         # calculate the new node features
-        # Shape param_2: (out_dim, order, hidden_dim)
+        # Shape param_2: (num_types, hidden_dim, order)
         # Shape B: (num_nodes, hidden_dim, order)
-        x = torch.einsum("ihn, onh -> ion", B, self.param_2)
+        if self.atom_wise:
+            x = torch.einsum("ihn, ihn -> ih", B, self.param_2[types])
 
-        if self.bias:
-            x = x + self.bias_2
+            x = self.lin_out(x)
 
-        x = x.sum(dim=-1)
+            out = self.dropout(x) + self.lin_skip(skip, types)
+        else:
+            x = torch.einsum("ihn, onh -> ion", B, self.param_2)
 
-        return self.dropout(x) + self.lin_skip(skip)
+            if self.bias:
+                x = x + self.bias_2
+
+            x = x.sum(dim=-1)
+
+            out = self.dropout(x) + self.lin_skip(skip)
+
+        return out
 
     def message(self, x_j: Tensor, edge_embedding: Tensor) -> Tensor:
         """This method performs a message passing operation.
