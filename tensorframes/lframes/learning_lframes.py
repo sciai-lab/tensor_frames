@@ -175,7 +175,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         if self.even_scalar_edge_dim > 0:
             inp = torch.cat([inp, edge_attr], dim=-1)
 
-        mlp_out = self.mlp(x=inp, batch=batch_j)
+        mlp_out = self.mlp(x=inp, batch=batch_j.flatten())
 
         relative_vec = pos_j - pos_i
         relative_norm = torch.clamp(torch.linalg.norm(relative_vec, dim=-1, keepdim=True), 1e-6)

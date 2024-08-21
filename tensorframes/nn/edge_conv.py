@@ -177,7 +177,7 @@ class EdgeConv(TFMessagePassing):
         if self.mlp2 is not None:
             if self.concatenate_receiver_features_in_mlp2 and x[1] is not None:
                 x_aggr = torch.cat((x_aggr, x[1]), dim=-1)
-            x_aggr = self.mlp2(x_aggr, batch=batch[1])
+            x_aggr = self.mlp2(x_aggr, batch=batch[1].flatten())
 
         return x_aggr
 
@@ -238,10 +238,10 @@ class EdgeConv(TFMessagePassing):
                     x = edge_features
                 else:
                     x = torch.cat((x, edge_features), dim=-1)
-            x = self.mlp1(x, batch=batch_i.view(-1))
+            x = self.mlp1(x, batch=batch_i.flatten())
         else:
             x = self.edge_feature_product_layer(edge_features) * self.mlp1(
-                x, batch=batch_i.view(-1)
+                x, batch=batch_i.flatten()
             )
 
         return x
