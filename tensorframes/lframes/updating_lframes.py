@@ -61,20 +61,29 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
 class AngleUpdateLFrames(torch.nn.Module):
     """Module for updating LFrames using angles."""
 
-    def __init__(self, in_reps: Union[TensorReps, Irreps], hidden_channels: list, **mlp_kwargs):
+    def __init__(
+        self,
+        in_reps: Union[TensorReps, Irreps],
+        hidden_channels: list,
+        use_atan2: bool = False,
+        **mlp_kwargs
+    ):
         """Initialize the AngleUpdateLFrames module.
 
         Args:
             in_reps (Union[TensorReps, Irreps]): List of input representations.
             hidden_channels (list): List of hidden channel sizes for the MLP.
+            use_atan (bool, optional): Whether to use atan2 function to predict the angles. Defaults to False.
             **mlp_kwargs: Additional keyword arguments for the MLPWrapped module.
         """
         super().__init__()
         self.in_reps = in_reps
 
+        self.use_atan2 = use_atan2
+
         self.mlp = MLPWrapped(
             in_channels=self.in_reps.dim,
-            hidden_channels=hidden_channels + [3],
+            hidden_channels=hidden_channels + [6] if use_atan2 else [3],
             **mlp_kwargs,
         )
 
@@ -94,7 +103,14 @@ class AngleUpdateLFrames(torch.nn.Module):
             Tuple[torch.Tensor, LFrames]: Tuple containing the updated input tensor and LFrames object.
         """
         out = self.mlp(x, batch=batch)
-        angles = 2 * torch.atan(out)
+        if self.use_atan2:
+            out = out.view(-1, 3, 2)
+
+            denominator = torch.where(out[..., 0].abs() < self.eps, self.eps, out[..., 0])
+            angles = torch.arctan2(out[..., 1], denominator)
+        else:
+            angles = 2 * torch.atan(out)
+
         rot_matr = angles_to_matrix(angles[:, 0], angles[:, 1], angles[:, 2])
 
         new_lframes = LFrames(torch.einsum("ijk, ikn -> ijn", rot_matr, lframes.matrices))
