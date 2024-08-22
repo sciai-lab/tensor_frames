@@ -10,33 +10,35 @@ from tensorframes.reps.tensorreps import TensorReps
 
 
 class GlobalAttentionPooling(torch.nn.Module):
-    """The GlobalAggregationPooling module.
+    """The GlobalAttentionPooling module.
 
     This module takes a tensor and aggregates the values in each batch using a global attention mechanism.
     TODO: at the moment this only works if one only wants a scalar output in the network.
     """
 
     def __init__(
-        self, in_reps: Union[TensorReps, Irreps], out_reps: Union[TensorReps, Irreps]
+        self,
+        in_reps: Union[TensorReps, Irreps],
+        out_reps: Union[TensorReps, Irreps],
+        bias: bool = False,
     ) -> None:
-        """Initialize the GlobalAggregationPooling module.
+        """Initialize the GlobalAttentionPooling module.
 
         Args:
             in_reps (list): List of input representations.
             out_reps (list): List of output representations.
+            bias (bool, optional): Whether to include bias terms. Defaults to False.
         """
         super().__init__()
         self.in_reps = in_reps
         self.out_reps = out_reps
 
         self.query = torch.nn.Parameter(torch.randn(in_reps.dim))
-        self.key = torch.nn.Linear(in_reps.dim, in_reps.dim)
-        self.value = torch.nn.Linear(in_reps.dim, out_reps.dim)
-
-        self.lin = torch.nn.Linear(in_reps.dim, out_reps.dim)
+        self.key = torch.nn.Linear(in_reps.dim, in_reps.dim, bias=bias)
+        self.value = torch.nn.Linear(in_reps.dim, out_reps.dim, bias=bias)
 
     def forward(self, x: Tensor, batch: Tensor) -> Tensor:
-        """Applies the GlobalAggregationPooling module.
+        """Applies the GlobalAttentionPooling module.
 
         Args:
             x (torch.Tensor): The input tensor.
