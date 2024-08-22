@@ -31,6 +31,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         exceptional_choice: str = "random",
         anchor_z_axis: bool = True,
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
+        return_orthogonality_loss: bool = False,
         **mlp_kwargs: dict,
     ) -> None:
         """Initialize the LearnedGramSchmidtLFrames model.
@@ -46,6 +47,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             exceptional_choice (str, optional): The exceptional choice, which is used by gram schmidt. Defaults to "random".
             anchor_z_axis (bool, optional): Whether to anchor the z-axis. Defaults to False.
             envelope (Union[torch.nn.Module, None], optional): The envelope module. Defaults to EnvelopePoly(5).
+            return_orthogonality_loss (bool, optional): Whether to return the orthogonality loss. Defaults to False.
             **mlp_kwargs (dict): Additional keyword arguments for the MLP.
         """
         super().__init__()
@@ -90,6 +92,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             hidden_channels=self.hidden_channels,
             **mlp_kwargs,
         )
+        self.return_orthogonality_loss = return_orthogonality_loss
 
     def forward(
         self,
@@ -99,7 +102,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         edge_index: Tensor,
         edge_attr: Tensor,
         batch: Union[Tensor, PairTensor] = None,
-    ) -> LFrames:
+    ) -> Union[LFrames, tuple[LFrames, Tensor]]:
         """Forward pass of the learning_lframes module.
 
         Args:
@@ -138,7 +141,17 @@ class LearnedGramSchmidtLFrames(MessagePassing):
                 vecs[:, 0, :], vecs[:, 1, :], exceptional_choice=self.exceptional_choice
             )
 
-        return LFrames(local_frames)
+        if self.return_orthogonality_loss:
+            matrix = torch.stack([vecs[:, 0, :], vecs[:, 1, :], vecs[:, 2, :]], dim=1)
+
+            orthogonality_loss = torch.norm(
+                torch.eye(matrix.shape[-1], device=matrix.device)
+                - torch.einsum("bij,bkj->bik", matrix, matrix)
+            )
+
+            return LFrames(local_frames), orthogonality_loss
+        else:
+            return LFrames(local_frames)
 
     def message(
         self,
