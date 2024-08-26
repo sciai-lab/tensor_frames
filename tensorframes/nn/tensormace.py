@@ -1,5 +1,4 @@
 import math
-from typing import Union
 
 import torch
 from torch import Tensor
@@ -7,8 +6,7 @@ from torch_geometric.nn import LayerNorm, MessagePassing
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.linear import AtomTypeLinear, EdgeLinear
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.reps import Reps
 
 
 class TensorMACE(MessagePassing):
@@ -19,8 +17,8 @@ class TensorMACE(MessagePassing):
 
     def __init__(
         self,
-        in_tensor_reps: Union[TensorReps, Irreps],
-        out_tensor_reps: Union[TensorReps, Irreps],
+        in_tensor_reps: Reps,
+        out_tensor_reps: Reps,
         edge_emb_dim: int,
         hidden_dim: int,
         num_types: int,
@@ -32,8 +30,8 @@ class TensorMACE(MessagePassing):
         """Initialize a TensorMace object.
 
         Args:
-            in_tensor_reps (Union[TensorReps, Irreps]): The input tensor representations.
-            out_tensor_reps (Union[TensorReps, Irreps]): The output tensor representations.
+            in_tensor_reps (Reps): The input tensor representations.
+            out_tensor_reps (Reps): The output tensor representations.
             edge_emb_dim (int): The dimension of the edge embeddings.
             hidden_dim (int): The dimension of the hidden layer.
             num_types (int): The number of different atom types.

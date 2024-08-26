@@ -5,6 +5,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from tensorframes.lframes.lframes import LFrames
+from tensorframes.reps.reps import Reps
 
 
 class TensorRep(Tuple):
@@ -129,7 +130,7 @@ class _TensorMulRep(Tuple):
         return f"{self.mul}x{self.rep}"
 
 
-class TensorReps(Tuple):
+class TensorReps(Tuple, Reps):
     """Represents a collection of tensor representations."""
 
     def __new__(cls, tensor_reps, spatial_dim=3):
