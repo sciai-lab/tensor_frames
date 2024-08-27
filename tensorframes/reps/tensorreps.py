@@ -432,9 +432,6 @@ class TensorRepsTransform(Module):
         if isinstance(basis_change, torch.Tensor):
             basis_change = LFrames(basis_change)
 
-        if self.pseudo_tensor.device != coeffs.device:
-            self.pseudo_tensor = self.pseudo_tensor.to(coeffs.device)
-
         N = coeffs.shape[0]
         rot_matrix_t = basis_change.inv
 
