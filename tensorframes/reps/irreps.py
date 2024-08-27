@@ -398,9 +398,6 @@ class IrrepsTransform(Module):
         if self.irreps.dim == 0:
             return output_coeffs
 
-        if self.odd_tensor.device != coeffs.device:
-            self.odd_tensor = self.odd_tensor.to(coeffs.device)
-
         N = coeffs.shape[0]
 
         for i, l in enumerate(self.sorted_l):

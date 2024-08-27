@@ -84,10 +84,6 @@ class MLPRepsTransform(torch.nn.Module):
         Returns:
             torch.Tensor: Output tensor after passing through the MLP.
         """
-        # TODO: Can we somehow avoid this check?
-        if x.device != next(self.mlp.parameters()).device:
-            self.mlp = self.mlp.to(x.device)
-
         mlp_input = torch.cat([x, lframes.matrices.flatten(start_dim=-2, end_dim=-1)], dim=1)
 
         return self.mlp(mlp_input)
