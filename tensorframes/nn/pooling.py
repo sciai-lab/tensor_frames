@@ -1,12 +1,10 @@
-from typing import Union
-
 import torch
 import torch_geometric
 import torch_geometric.utils
 from torch import Tensor
+from torch_geometric.nn import global_add_pool
 
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.reps import Reps
 
 
 class GlobalAttentionPooling(torch.nn.Module):
@@ -18,8 +16,8 @@ class GlobalAttentionPooling(torch.nn.Module):
 
     def __init__(
         self,
-        in_reps: Union[TensorReps, Irreps],
-        out_reps: Union[TensorReps, Irreps],
+        in_reps: Reps,
+        out_reps: Reps,
         bias: bool = False,
     ) -> None:
         """Initialize the GlobalAttentionPooling module.
@@ -55,6 +53,6 @@ class GlobalAttentionPooling(torch.nn.Module):
 
         x = torch.einsum("i,ij->ij", softmax, v)
 
-        out = torch_geometric.nn.pool.global_add_pool(x, batch)
+        out = global_add_pool(x, batch)
 
         return out
