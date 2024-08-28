@@ -6,7 +6,6 @@ from torch import Tensor
 from torch.nn import Module
 
 from tensorframes.lframes import LFrames
-from tensorframes.reps.tensorreps import TensorReps
 
 
 def double_gradient_safe_norm(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
@@ -54,8 +53,9 @@ def compute_edge_vec(
 
     edge_vec = pos_j - pos_i
     if lframes[1] is not None:
-        rep_trafo = TensorReps("1x1n").get_transform_class()
-        edge_vec = rep_trafo.forward(edge_vec, lframes[1].index_select(edge_index[1]))
+        # TODO: Make this without einsum, can't use Reps here.
+        matrices = lframes[1].index_select(edge_index[1]).matrices
+        edge_vec = torch.einsum("ijk,ik->ij", matrices, edge_vec)
 
     return edge_vec
 

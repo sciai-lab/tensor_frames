@@ -1,5 +1,4 @@
 import math
-from typing import Union
 
 import torch
 from torch import Tensor
@@ -7,8 +6,7 @@ from torch_geometric.nn import LayerNorm, MessagePassing
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.linear import AtomTypeLinear, EdgeLinear
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.reps import Reps
 
 
 class TensorMACE(MessagePassing):
@@ -19,11 +17,11 @@ class TensorMACE(MessagePassing):
 
     def __init__(
         self,
-        in_tensor_reps: Union[TensorReps, Irreps],
-        out_tensor_reps: Union[TensorReps, Irreps],
+        in_tensor_reps: Reps,
+        out_tensor_reps: Reps,
         edge_emb_dim: int,
         hidden_dim: int,
-        num_types: int,
+        num_types: int | None = None,
         max_order: int = 3,
         dropout: float = 0.0,
         bias: bool = False,
@@ -32,11 +30,11 @@ class TensorMACE(MessagePassing):
         """Initialize a TensorMace object.
 
         Args:
-            in_tensor_reps (Union[TensorReps, Irreps]): The input tensor representations.
-            out_tensor_reps (Union[TensorReps, Irreps]): The output tensor representations.
+            in_tensor_reps (Reps): The input tensor representations.
+            out_tensor_reps (Reps): The output tensor representations.
             edge_emb_dim (int): The dimension of the edge embeddings.
             hidden_dim (int): The dimension of the hidden layer.
-            num_types (int): The number of different atom types.
+            num_types (int, optional): The number of atom types. Defaults to None.
             order (int): The message passing body order. Defaults to 3.
             dropout (float, optional): The dropout rate. Defaults to 0.0.
             bias (bool, optional): Whether to include bias terms. Defaults to False.
@@ -56,26 +54,29 @@ class TensorMACE(MessagePassing):
         self.hidden_dim = hidden_dim
         self.bias = bias
 
+        if num_types is None and atom_wise:
+            raise ValueError("Number of atom types must be provided when atom-wise is True")
+
         self.edge_lin = EdgeLinear(self.in_dim, self.edge_emb_dim, self.hidden_dim)
 
         self.param_1 = torch.nn.Parameter(
-            torch.empty(self.hidden_dim, self.max_order, self.hidden_dim)
+            torch.empty((self.hidden_dim, self.max_order, self.hidden_dim))
         )
 
         if self.bias:
-            self.bias_1 = torch.nn.Parameter(torch.empty(self.hidden_dim, self.max_order))
+            self.bias_1 = torch.nn.Parameter(torch.empty((self.hidden_dim, self.max_order)))
 
         self.atom_wise = atom_wise
         if atom_wise:
             self.param_2 = torch.nn.Parameter(
-                torch.empty(num_types, self.hidden_dim, self.max_order)
+                torch.empty((num_types, self.hidden_dim, self.max_order))
             )
             self.lin_skip = AtomTypeLinear(
                 self.in_dim, self.out_dim, num_types=num_types, bias=self.bias
             )
         else:
             self.param_2 = torch.nn.Parameter(
-                torch.empty(self.out_dim, self.max_order, self.hidden_dim)
+                torch.empty((self.out_dim, self.max_order, self.hidden_dim))
             )
             if self.bias:
                 self.bias_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.max_order))
