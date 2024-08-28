@@ -1,26 +1,22 @@
-from typing import Union
-
 import torch
 from torch_geometric.utils import add_remaining_self_loops, degree
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.reps import Reps
 
 
 class GCNConv(TFMessagePassing):
     """GCNConv class represents a Graph Convolutional Network layer in the tensorframes
     formalism."""
 
-    def __init__(
-        self, in_reps: Union[TensorReps, Irreps], out_reps: Union[TensorReps, Irreps]
-    ) -> None:
+    def __init__(self, in_reps: Reps, out_reps: Reps) -> None:
         """Initialize the GCNConv layer.
 
         Args:
-            in_reps (Union[TensorReps, Irreps]): The input representations.
-            out_reps (Union[TensorReps, Irreps]): The output representations.
+            in_reps (Reps): The input representations.
+            out_reps (Reps): The output representations.
         """
         super().__init__(
             params_dict={

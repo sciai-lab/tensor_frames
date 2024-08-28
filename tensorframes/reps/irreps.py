@@ -5,6 +5,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.reps.reps import Reps
 from tensorframes.utils.wigner import _Jd
 
 
@@ -126,7 +127,7 @@ class _IrMulRep(Tuple):
         return f"{self.mul}x{self.rep}"
 
 
-class Irreps(Tuple):
+class Irreps(Tuple, Reps):
     """Represents a collection of irreducible representations (irreps) of a group."""
 
     def __new__(cls, irreps, spatial_dim=3):
@@ -396,9 +397,6 @@ class IrrepsTransform(Module):
 
         if self.irreps.dim == 0:
             return output_coeffs
-
-        if self.odd_tensor.device != coeffs.device:
-            self.odd_tensor = self.odd_tensor.to(coeffs.device)
 
         N = coeffs.shape[0]
 

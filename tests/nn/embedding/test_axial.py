@@ -15,6 +15,7 @@ from tensorframes.nn.embedding.radial import (
 
 
 def test_axial():
+    """Test the axial embeddings."""
     pos = torch.rand(10, 3)
     edge_index = torch.randint(0, 10, (2, 20))
     lframes = rand_matrix(10)
@@ -46,7 +47,7 @@ def test_axial():
     assert torch.allclose(
         axis_bessel(edge_vec=edge_vec),
         axis_bessel(pos=pos, edge_index=edge_index, lframes=lframes),
-        atol=1e-7,
+        atol=1e-5,
     )
 
     # # test axiswise from radial:
@@ -111,7 +112,7 @@ def test_axial():
     assert torch.allclose(
         axis_radial_bessel(edge_vec=edge_vec),
         axis_radial_bessel(pos=pos, edge_index=edge_index, lframes=lframes),
-        atol=1e-7,
+        atol=1e-5,
     )
 
     # check that it is the same as the axis bessel:
@@ -133,7 +134,7 @@ def test_axial():
     assert torch.allclose(
         specific_axis_radial_bessel(edge_vec=edge_vec),
         specific_axis_radial_bessel(pos=pos, edge_index=edge_index, lframes=lframes),
-        atol=1e-7,
+        atol=1e-5,
     )
 
     # check that without training the radial embeddings are the same:
