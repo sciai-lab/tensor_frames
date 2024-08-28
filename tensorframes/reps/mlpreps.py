@@ -15,16 +15,18 @@ class MLPReps(Reps):
     Represents a tensor representation using a Multi-Layer Perceptron (MLP).
     """
 
-    def __init__(self, dim: int, reps_id: Union[str, int]) -> None:
+    def __init__(self, dim: int, reps_id: Union[str, int], spatial_dim: int = 3) -> None:
         """Initialize the MLPReps object.
 
         Args:
             dim (int): The dimension of the representations.
             reps_id (Union[str, int]): The ID of the representations. (to use the same representation in different places)
+            spatial_dim (int, optional): The spatial dimension. Defaults to 3.
         """
         super().__init__()
         self._dim = dim
         self._reps_id = str(reps_id)
+        self.spatial_dim = spatial_dim
 
     def __repr__(self) -> str:
         """Returns a string representation of the MLPReps object.
@@ -32,7 +34,7 @@ class MLPReps(Reps):
         Returns:
             str: A string representation of the MLPReps object.
         """
-        return f"MLPReps(dim={self.dim}), reps_id={self._reps_id}"
+        return f"MLPReps(dim={self.dim}, reps_id={self._reps_id}, spatial_dim={self.spatial_dim})"
 
     @property
     def dim(self) -> int:
@@ -51,7 +53,7 @@ class MLPReps(Reps):
         """
 
         if transform_dict.get(self._reps_id) is None:
-            transform_dict[self._reps_id] = MLPRepsTransform(self.dim)
+            transform_dict[self._reps_id] = MLPRepsTransform(self.dim, self.spatial_dim)
 
         return transform_dict[self._reps_id]
 
@@ -62,16 +64,19 @@ class MLPRepsTransform(torch.nn.Module):
     Applies a MLP to the input tensor.
     """
 
-    def __init__(self, dim: int) -> None:
+    def __init__(self, dim: int, spatial_dim: int) -> None:
         """Initialize the MLPRepsTransform object.
 
         Args:
             dim (int): The dimension of the representations.
+            spatial_dim (int): The spatial dimension.
         """
         super().__init__()
         self.dim = dim
         self.mlp = MLP(
-            in_channels=dim + 9, hidden_channels=[dim] + [dim], activation_layer=torch.nn.SiLU
+            in_channels=dim + spatial_dim**2,
+            hidden_channels=[dim] + [dim],
+            activation_layer=torch.nn.SiLU,
         )
 
     def forward(self, x: torch.Tensor, lframes: Union[LFrames, ChangeOfLFrames]) -> torch.Tensor:
