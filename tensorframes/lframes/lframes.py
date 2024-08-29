@@ -96,25 +96,7 @@ class LFrames:
             LFrames: LFrames object containing the selected rotation matrices.
         """
 
-        new_lframes = LFrames(
-            self.matrices.index_select(0, indices),
-            cache_wigner=self.cache_wigner,
-            spatial_dim=self.spatial_dim,
-        )
-
-        # need to copy the attributes if they are not None
-        if self._det is not None:
-            new_lframes._det = self.det.index_select(0, indices)
-        if self._inv is not None:
-            new_lframes._inv = self.inv.index_select(0, indices)
-        if self._angles is not None:
-            new_lframes._angles = self.angles.index_select(0, indices)
-
-        if self.cache_wigner and self.wigner_cache is not {}:
-            for l in self.wigner_cache:
-                new_lframes.wigner_cache[l] = self.wigner_cache[l].index_select(0, indices)
-
-        return new_lframes
+        return IndexSelectLFrames(self, indices)
 
     def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
         """Wigner D matrices corresponding to the rotation matrices.
@@ -136,7 +118,106 @@ class LFrames:
             return wigner
 
 
-class ChangeOfLFrames:
+class IndexSelectLFrames(LFrames):
+    """Represents a selection of rotation matrices from an LFrames object.
+
+    The selection is done on the fly.
+    """
+
+    def __init__(self, lframes: LFrames, indices: torch.Tensor) -> None:
+        """Initialize the IndexSelectLFrames object.
+
+        Args:
+            lframes (LFrames): The LFrames object.
+            indices (torch.Tensor): The indices.
+
+        Returns:
+            None
+        """
+
+        self.lframes = lframes
+        self.indices = indices
+        self.spatial_dim = lframes.spatial_dim
+
+        self._matrices = None
+        self._wigner_cache = {}
+
+    @property
+    def wigner_cache(self) -> dict:
+        """Returns the wigner cache for the current instance.
+
+        If the wigner cache has not been initialized, it is initialized by indexing the wigner cache
+        attribute of the lframes object with the indices attribute of the current object.
+
+        Returns:
+            dict: A dictionary containing the wigner cache.
+        """
+        if self._wigner_cache == {}:
+            for l in self.lframes.wigner_cache:
+                self._wigner_cache[l] = self.lframes.wigner_cache[l].index_select(0, self.indices)
+        return self._wigner_cache
+
+    @property
+    def matrices(self) -> torch.Tensor:
+        """Returns the matrices stored in the lframes object.
+
+        If the matrices have not been initialized, they are initialized by indexing the matrices
+        attribute of the lframes object with the indices attribute of the current object.
+
+        Returns:
+            torch.Tensor: The matrices stored in the lframes object.
+        """
+        if self._matrices is None:
+            self._matrices = self.lframes.matrices.index_select(0, self.indices)
+        return self._matrices
+
+    @property
+    def det(self) -> torch.Tensor:
+        """Determinant of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the determinants.
+        """
+        return self.lframes.det.index_select(0, self.indices)
+
+    @property
+    def inv(self) -> torch.Tensor:
+        """Inverse of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the inverses.
+        """
+        return self.lframes.inv.index_select(0, self.indices)
+
+    @property
+    def angles(self) -> torch.Tensor:
+        """Euler angles in yxy convention corresponding to the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the Euler angles.
+        """
+        return self.lframes.angles.index_select(0, self.indices)
+
+    def index_select(self, indices: torch.Tensor) -> LFrames:
+        """Selects the rotation matrices corresponding to the given indices.
+
+        Is not allowed for IndexSelectLFrames.
+        """
+        raise NotImplementedError("IndexSelectLFrames cannot be indexed again.")
+
+    def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
+        """Wigner D matrices corresponding to the rotation matrices.
+
+        Args:
+            l (int): Degree of the Wigner D matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the Wigner D matrices.
+        """
+        return self.lframes.wigner_D(l, J).index_select(0, self.indices)
+
+
+class ChangeOfLFrames(LFrames):
     """Represents a change of frames between two LFrames objects."""
 
     def __init__(self, lframes_start: LFrames, lframes_end: LFrames) -> None:
@@ -224,8 +305,9 @@ class ChangeOfLFrames:
             wigner_end = self.lframes_end.wigner_cache[l]
             return torch.bmm(wigner_end, wigner_start.transpose(-1, -2))
         else:
-            return wigner_D_from_matrix(
-                l, self.det[:, None, None] * self.matrices, J=J, angles=self.angles
+            return torch.bmm(
+                self.lframes_end.wigner_D(l, J),
+                self.lframes_start.wigner_D(l, J).transpose(-1, -2),
             )
 
 
