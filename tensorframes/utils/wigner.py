@@ -144,9 +144,7 @@ def euler_angles_yxy(
     return angles
 
 
-def wigner_D_with_J(
-    l: int, J: torch.Tensor, alpha: torch.Tensor, beta: torch.Tensor, gamma: torch.Tensor
-) -> torch.Tensor:
+def wigner_D(l: int, alpha: torch.Tensor, beta: torch.Tensor, gamma: torch.Tensor) -> torch.Tensor:
     """
     Calculate the Wigner D matrix using the precomputed J matrix and Euler angles.
     Taken from https://github.com/atomicarchitects/equiformer_v2/blob/main/nets/equiformer_v2/wigner.py
@@ -159,7 +157,6 @@ def wigner_D_with_J(
 
     Args:
         l (int): The order of the Wigner D matrix.
-        J (torch.Tensor): The J matrix.
         alpha (torch.Tensor): The rotation angle around the y-axis. shape: (...,)
         beta (torch.Tensor): The rotation angle around the x-axis. shape like alpha.
         gamma (torch.Tensor): The rotation angle around the y-axis. shape like alpha.
@@ -170,8 +167,13 @@ def wigner_D_with_J(
     .. note::
         The Euler angles are in the yxy convention. But in the paper and other theoretical works one uses the zyz convention. E3nn is special in that regard.
     """
-    if J.device != alpha.device:
-        J = J.to(alpha.device)
+    if _Jd[l].dtype != alpha.dtype:
+        _Jd[l] = _Jd[l].to(dtype=alpha.dtype)
+
+    if _Jd[l].device != alpha.device:
+        _Jd[l] = _Jd[l].to(device=alpha.device)
+
+    J = _Jd[l]
 
     Xa = _z_rot_mat(alpha, l)
     Xb = _z_rot_mat(beta, l)
@@ -182,8 +184,7 @@ def wigner_D_with_J(
 def wigner_D_from_matrix(
     l: int,
     matrix: torch.Tensor,
-    angles: torch.Tensor = None,
-    J: torch.Tensor = None,
+    angles: torch.Tensor | None = None,
     handle_special_cases: bool = False,
 ) -> torch.Tensor:
     """Calculate the Wigner D-matrix for a given angular momentum `l` and rotation matrix `matrix`.
@@ -191,8 +192,7 @@ def wigner_D_from_matrix(
     Args:
         l (int): The angular momentum quantum number.
         matrix (torch.Tensor): The rotation matrix. shape (..., 3, 3)
-        angles (torch.Tensor, optional): The Euler angles in yxy convention. Of shape (N,3). If not provided, it will be calculated from the matrix.
-        J (torch.Tensor, optional): The J matrix. If not provided, it will be looked up based on the angular momentum `l`.
+        angles (torch.Tensor, optional): The Euler angles in yxy convention. Of shape (N,3). If not provided, it will be calculated from the matrix. Defaults to None.
         handle_special_cases (bool, optional): Whether to handle special cases where the matrix is diagonal. Defaults to False.
 
     Returns:
@@ -203,12 +203,10 @@ def wigner_D_from_matrix(
     if l == 1:
         return matrix
 
-    if J is None:
-        J = _Jd[l].to(matrix.dtype).to(matrix.device)
     if angles is None:
         angles = euler_angles_yxy(matrix, handle_special_cases=handle_special_cases)
 
-    return wigner_D_with_J(l, J, angles[..., 0], angles[..., 1], angles[..., 2])
+    return wigner_D(l, angles[..., 0], angles[..., 1], angles[..., 2])
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ from torch.nn import Module
 
 from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
 from tensorframes.reps.reps import Reps
-from tensorframes.utils.wigner import _Jd
 
 
 class Irrep(Tuple):
@@ -364,11 +363,6 @@ class IrrepsTransform(Module):
         # alternative: calculate these once on the device and then cache them.
         self.register_buffer("odd_tensor", odd_tensor)
 
-        # register the J_matrices as buffer:
-        # this is a bit hacky with string in the name:
-        for l_val in self.sorted_l:
-            self.register_buffer(f"J_matrix_{l_val}", _Jd[l_val].float())
-
     def forward(
         self, coeffs: Tensor, basis_change: Union[LFrames, ChangeOfLFrames], inplace: bool = False
     ) -> Tensor:
@@ -410,8 +404,7 @@ class IrrepsTransform(Module):
                 l_tensor = coeffs[:, l_mask].view(N, -1, 2 * l + 1)
 
             # perform the transformation:
-            J_matrix = getattr(self, f"J_matrix_{l}")
-            wigner = basis_change.wigner_D(l, J=J_matrix).transpose(-1, -2)
+            wigner = basis_change.wigner_D(l).transpose(-1, -2)
             if self.is_sorted:
                 output_coeffs[:, start_idx:end_idx] = torch.matmul(l_tensor, wigner).flatten(1)
             else:

@@ -1,6 +1,6 @@
 import torch
 
-from tensorframes.utils.wigner import _Jd, euler_angles_yxy, wigner_D_from_matrix
+from tensorframes.utils.wigner import euler_angles_yxy, wigner_D_from_matrix
 
 
 class LFrames:
@@ -98,7 +98,7 @@ class LFrames:
 
         return IndexSelectLFrames(self, indices)
 
-    def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
+    def wigner_D(self, l: int) -> torch.Tensor:
         """Wigner D matrices corresponding to the rotation matrices.
 
         Args:
@@ -111,7 +111,7 @@ class LFrames:
             return self.wigner_cache[l]
         else:
             wigner = wigner_D_from_matrix(
-                l, self.det[:, None, None] * self.matrices, J=J, angles=self.angles
+                l, self.det[:, None, None] * self.matrices, angles=self.angles
             )  # * self.det to ensure wigner gets rotation matrix
             if self.cache_wigner:
                 self.wigner_cache[l] = wigner
@@ -214,7 +214,7 @@ class IndexSelectLFrames(LFrames):
         """
         raise NotImplementedError("IndexSelectLFrames cannot be indexed again.")
 
-    def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
+    def wigner_D(self, l: int) -> torch.Tensor:
         """Wigner D matrices corresponding to the rotation matrices.
 
         Args:
@@ -224,7 +224,7 @@ class IndexSelectLFrames(LFrames):
             torch.Tensor: Tensor containing the Wigner D matrices.
         """
         if l not in self.wigner_cache:
-            self.wigner_cache[l] = self.lframes.wigner_D(l, J).index_select(0, self.indices)
+            self.wigner_cache[l] = self.lframes.wigner_D(l).index_select(0, self.indices)
         return self.wigner_cache[l]
 
 
@@ -301,7 +301,7 @@ class ChangeOfLFrames(LFrames):
         """
         return self.matrices.device
 
-    def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
+    def wigner_D(self, l: int) -> torch.Tensor:
         """Wigner D matrices corresponding to the rotation matrices.
 
         Args:
@@ -317,8 +317,8 @@ class ChangeOfLFrames(LFrames):
             return torch.bmm(wigner_end, wigner_start.transpose(-1, -2))
         else:
             return torch.bmm(
-                self.lframes_end.wigner_D(l, J),
-                self.lframes_start.wigner_D(l, J).transpose(-1, -2),
+                self.lframes_end.wigner_D(l),
+                self.lframes_start.wigner_D(l).transpose(-1, -2),
             )
 
 
@@ -326,14 +326,13 @@ if __name__ == "__main__":
     # Example usage:
     matrices = torch.rand(2, 3, 3)
     lframes = LFrames(matrices)
-    _Jd = [J.to(matrices.dtype).to(matrices.device) for J in _Jd]
-    print("wigner_d for l=2:", lframes.wigner_D(2, J=_Jd[2]))
+    print("wigner_d for l=2:", lframes.wigner_D(2))
 
     matrices2 = torch.rand(2, 3, 3)
     lframes2 = LFrames(matrices2)
-    print("wigner_d for l=2:", lframes2.wigner_D(2, J=_Jd[2]))
-    print("wigner_d for l=0:", lframes2.wigner_D(0, J=_Jd[1]))
+    print("wigner_d for l=2:", lframes2.wigner_D(2))
+    print("wigner_d for l=0:", lframes2.wigner_D(0))
 
     change = ChangeOfLFrames(lframes, lframes2)
-    print("wigner_d for l=1:", change.wigner_D(1, J=_Jd[1]))
-    print("wigner_d for l=2:", change.wigner_D(2, J=_Jd[2]))
+    print("wigner_d for l=1:", change.wigner_D(1))
+    print("wigner_d for l=2:", change.wigner_D(2))
