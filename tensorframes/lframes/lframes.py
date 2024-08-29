@@ -141,6 +141,9 @@ class IndexSelectLFrames(LFrames):
 
         self._matrices = None
         self._wigner_cache = {}
+        self._det = None
+        self._inv = None
+        self._angles = None
 
     @property
     def wigner_cache(self) -> dict:
@@ -178,7 +181,9 @@ class IndexSelectLFrames(LFrames):
         Returns:
             torch.Tensor: Tensor containing the determinants.
         """
-        return self.lframes.det.index_select(0, self.indices)
+        if self._det is None:
+            self._det = self.lframes.det.index_select(0, self.indices)
+        return self._det
 
     @property
     def inv(self) -> torch.Tensor:
@@ -187,7 +192,9 @@ class IndexSelectLFrames(LFrames):
         Returns:
             torch.Tensor: Tensor containing the inverses.
         """
-        return self.lframes.inv.index_select(0, self.indices)
+        if self._inv is None:
+            self._inv = self.lframes.inv.index_select(0, self.indices)
+        return self._inv
 
     @property
     def angles(self) -> torch.Tensor:
@@ -196,7 +203,9 @@ class IndexSelectLFrames(LFrames):
         Returns:
             torch.Tensor: Tensor containing the Euler angles.
         """
-        return self.lframes.angles.index_select(0, self.indices)
+        if self._angles is None:
+            self._angles = self.lframes.angles.index_select(0, self.indices)
+        return self._angles
 
     def index_select(self, indices: torch.Tensor) -> LFrames:
         """Selects the rotation matrices corresponding to the given indices.
@@ -214,7 +223,9 @@ class IndexSelectLFrames(LFrames):
         Returns:
             torch.Tensor: Tensor containing the Wigner D matrices.
         """
-        return self.lframes.wigner_D(l, J).index_select(0, self.indices)
+        if l not in self.wigner_cache:
+            self.wigner_cache[l] = self.lframes.wigner_D(l, J).index_select(0, self.indices)
+        return self.wigner_cache[l]
 
 
 class ChangeOfLFrames(LFrames):
