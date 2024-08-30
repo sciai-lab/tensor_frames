@@ -1,8 +1,7 @@
-import torch
 from torch import Tensor
 from torch.nn import Module
 
-from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.lframes.lframes import LFrames
 from tensorframes.reps.reps import Reps
 
 
@@ -55,9 +54,4 @@ class FromLocalToGlobalFrame(Module):
         Returns:
             Tensor: The output tensor.
         """
-        # make an identity lframe
-        id_lframes = LFrames(
-            torch.eye(3).to(device=lframes.matrices.device).repeat(lframes.matrices.size(0), 1, 1)
-        )  # TODO make it that it does not use the identity matrix
-
-        return self.trafo_class(x, ChangeOfLFrames(lframes_start=lframes, lframes_end=id_lframes))
+        return self.trafo_class(x, lframes.inverse_lframes())
