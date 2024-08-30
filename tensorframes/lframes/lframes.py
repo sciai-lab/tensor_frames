@@ -86,6 +86,14 @@ class LFrames:
         """
         return self.matrices.device
 
+    def inverse_lframes(self) -> "LFrames":
+        """Returns the inverse of the LFrames object.
+
+        Returns:
+            LFrames: LFrames object containing the inverse rotation matrices.
+        """
+        return InvLFrames(self)
+
     def index_select(self, indices: torch.Tensor) -> "LFrames":
         """Selects the rotation matrices corresponding to the given indices.
 
@@ -116,6 +124,98 @@ class LFrames:
             if self.cache_wigner:
                 self.wigner_cache[l] = wigner
             return wigner
+
+
+class InvLFrames(LFrames):
+    """Represents the inverse of a collection of o3 matrices."""
+
+    def __init__(self, lframes: LFrames) -> None:
+        """Initialize the InvLFrames class.
+
+        Args:
+            lframes (LFrames): The LFrames object.
+
+        Returns:
+            None
+        """
+        self.lframes = lframes
+        self.spatial_dim = lframes.spatial_dim
+
+        self._det = None
+        self._inv = None
+        self._angles = None
+        self._matrices = None
+
+    @property
+    def matrices(self) -> torch.Tensor:
+        """Returns the matrices stored in the lframes object.
+
+        Returns:
+            torch.Tensor: The matrices stored in the lframes object.
+        """
+        if self._matrices is None:
+            self._matrices = self.lframes.inv
+        return self._matrices
+
+    @property
+    def det(self) -> torch.Tensor:
+        """Determinant of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the determinants.
+        """
+        if self._det is None:
+            self._det = 1 / self.lframes.det
+        return self._det
+
+    @property
+    def inv(self) -> torch.Tensor:
+        """Inverse of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the inverses.
+        """
+        if self._inv is None:
+            self._inv = self.lframes.matrices
+        return self._inv
+
+    @property
+    def angles(self) -> torch.Tensor:
+        """Euler angles in yxy convention corresponding to the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the Euler angles.
+        """
+        # TODO: Make this right
+        if self._angles is None:
+            self._angles = -self.lframes.angles.flip((-1,))
+        return self._angles
+
+    def index_select(self, indices: torch.Tensor) -> LFrames:
+        """Selects the rotation matrices corresponding to the given indices.
+
+        Args:
+            indices (torch.Tensor): Tensor containing the indices to select.
+
+        Returns:
+            LFrames: LFrames object containing the selected rotation matrices.
+        """
+        return IndexSelectLFrames(self, indices)
+
+    def wigner_D(self, l: int) -> torch.Tensor:
+        """Wigner D matrices corresponding to the rotation matrices.
+
+        Args:
+            l (int): Degree of the Wigner D matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the Wigner D matrices.
+        """
+        return self.lframes.wigner_D(l).transpose(-1, -2)
+
+    def inverse_lframes(self) -> LFrames:
+        """Returns the original reference to the LFrames object."""
+        return self.lframes
 
 
 class IndexSelectLFrames(LFrames):
@@ -227,6 +327,10 @@ class IndexSelectLFrames(LFrames):
             self.wigner_cache[l] = self.lframes.wigner_D(l).index_select(0, self.indices)
         return self.wigner_cache[l]
 
+    def inverse_lframes(self) -> LFrames:
+        """Returns the original reference to the LFrames object."""
+        return InvLFrames(self)
+
 
 class ChangeOfLFrames(LFrames):
     """Represents a change of frames between two LFrames objects."""
@@ -320,6 +424,16 @@ class ChangeOfLFrames(LFrames):
                 self.lframes_end.wigner_D(l),
                 self.lframes_start.wigner_D(l).transpose(-1, -2),
             )
+
+    def inverse_lframes(self) -> "ChangeOfLFrames":
+        """Returns the inverse of the ChangeOfLFrames object.
+
+        Returns:
+            ChangeOfLFrames: ChangeOfLFrames object containing the inverse rotation matrices.
+        """
+        return ChangeOfLFrames(
+            self.lframes_end.inverse_lframes(), self.lframes_start.inverse_lframes()
+        )
 
 
 if __name__ == "__main__":
