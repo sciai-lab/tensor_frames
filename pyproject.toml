@@ -1,3 +1,15 @@
+[project]
+name = 'tensorframes'
+requires-python = ">=3.11"
+version = "1.0.0"
+authors = [
+    {name = "Gerrit Gerhartz", email = "gerrit.gerhartz@gmail.com"},
+    {name = "Peter Lippmann", email = "peter.lippmann@iwr.uni-heidelberg.de"},
+]
+
+[tool.setuptools.package-data]
+"tensorframes.utils" = ["Jd.pt"]
+
 [tool.pytest.ini_options]
 addopts = [
   "--color=yes",
