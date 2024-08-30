@@ -3,7 +3,7 @@ from typing import Union
 import torch
 from torchvision.ops import MLP
 
-from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.lframes.lframes import LFrames
 from tensorframes.reps.reps import Reps
 
 transform_dict = {}
@@ -79,12 +79,12 @@ class MLPRepsTransform(torch.nn.Module):
             activation_layer=torch.nn.SiLU,
         )
 
-    def forward(self, x: torch.Tensor, lframes: Union[LFrames, ChangeOfLFrames]) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, lframes: LFrames) -> torch.Tensor:
         """Forward pass of the MLP model.
 
         Args:
             x (torch.Tensor): Input tensor.
-            lframes (Union[LFrames, ChangeOfLFrames]): LFrames or ChangeOfLFrames object.
+            lframes (LFrames): LFrames or ChangeOfLFrames object.
 
         Returns:
             torch.Tensor: Output tensor after passing through the MLP.

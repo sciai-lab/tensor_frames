@@ -4,7 +4,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
-from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.lframes.lframes import LFrames
 from tensorframes.reps.reps import Reps
 
 
@@ -363,14 +363,12 @@ class IrrepsTransform(Module):
         # alternative: calculate these once on the device and then cache them.
         self.register_buffer("odd_tensor", odd_tensor)
 
-    def forward(
-        self, coeffs: Tensor, basis_change: Union[LFrames, ChangeOfLFrames], inplace: bool = False
-    ) -> Tensor:
+    def forward(self, coeffs: Tensor, basis_change: LFrames, inplace: bool = False) -> Tensor:
         """Applies the transformation to the input coefficients.
 
         Args:
             coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the irreps.
-            basis_change (ChangeOfLFrames): The change of frames to be applied. With matrices attribute of shape `(N, 3, 3)`.
+            basis_change (LFrames): The change of frames to be applied. With matrices attribute of shape `(N, 3, 3)`.
             inplace (bool, optional): Whether to perform the transformation in-place. Defaults to False.
 
         Returns:

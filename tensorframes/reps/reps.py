@@ -1,8 +1,6 @@
-from typing import Union
-
 import torch
 
-from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.lframes.lframes import LFrames
 
 
 class Reps:
@@ -50,14 +48,12 @@ class RepsTransform(torch.nn.Module):
         """Initializes a new instance of the class."""
         assert NotImplementedError, "Subclasses must implement this method."
 
-    def forward(
-        self, x: torch.Tensor, basis_change: Union[LFrames, ChangeOfLFrames]
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, basis_change: LFrames) -> torch.Tensor:
         """Applies the transformation to the input tensor.
 
         Args:
             x (torch.Tensor): The input tensor.
-            basis_change (Union[LFrames, ChangeOfLFrames]): The basis change to apply to the tensor.
+            basis_change (LFrames): The basis change to apply to the tensor.
 
         Returns:
             torch.Tensor: The transformed tensor.
