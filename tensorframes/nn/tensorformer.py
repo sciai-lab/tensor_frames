@@ -1,4 +1,4 @@
-from typing import Type
+from typing import Type, Union
 
 import torch
 from torch import Tensor
@@ -29,13 +29,13 @@ class TensorFormer(TFMessagePassing):
         hidden_scalar_dim: int,
         hidden_activation: Type[Module] = torch.nn.SiLU,
         edge_embedding_dim: int = 0,
-        scalar_activation_function: Module | None = None,
+        scalar_activation_function: Union[Module, None] = None,
         value_activation_function: Module | None = None,
         dropout_attention: float = 0.0,
         dropout_mlp: float = 0.0,
         stochastic_depth: float = 0.0,
         radial_cutoff: float = 5.0,
-        envelope: Module | None = None,
+        envelope: Union[Module, None] = None,
         softmax: bool = False,
         attention_weight_dropout: float = 0.0,
         bias: bool = True,
@@ -143,7 +143,7 @@ class TensorFormer(TFMessagePassing):
         edge_index: Tensor,
         pos: Tensor,
         edge_embedding: Tensor,
-        batch: Tensor | None = None,
+        batch: Union[Tensor, None] = None,
     ):
         """Forward pass of the TensorFormer module. TODO: insert arxiv paper reference if we have
         one.
@@ -203,7 +203,7 @@ class TensorFormer(TFMessagePassing):
         ptr: Tensor,
         size_i: int,
         edge_embedding: Tensor,
-        batch_i: Tensor | None = None,
+        batch_i: Union[Tensor, None] = None,
     ):
         """Calculates the message passing operation for the Tensorformer model.
 
