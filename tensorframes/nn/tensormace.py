@@ -1,15 +1,17 @@
 import math
+from typing import Union
 
 import torch
 from torch import Tensor
-from torch_geometric.nn import LayerNorm, MessagePassing
+from torch_geometric.nn import LayerNorm
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.linear import AtomTypeLinear, EdgeLinear
+from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps.reps import Reps
 
 
-class TensorMACE(MessagePassing):
+class TensorMACE(TFMessagePassing):
     """The TensorMACE model.
 
     TODO: Make it more verbose
@@ -21,7 +23,7 @@ class TensorMACE(MessagePassing):
         out_tensor_reps: Reps,
         edge_emb_dim: int,
         hidden_dim: int,
-        num_types: int | None = None,
+        num_types: Union[int, None] = None,
         max_order: int = 3,
         dropout: float = 0.0,
         bias: bool = False,
@@ -116,8 +118,8 @@ class TensorMACE(MessagePassing):
         edge_index: Tensor,
         edge_embedding: Tensor,
         lframes: LFrames,
-        batch: Tensor | None = None,
-        types: Tensor | None = None,
+        batch: Union[Tensor, None] = None,
+        types: Union[Tensor, None] = None,
     ) -> Tensor:
         """Forward pass of the TensorMACE layer.
 
@@ -135,7 +137,6 @@ class TensorMACE(MessagePassing):
         skip = x
 
         x = self.layer_norm(x, batch)
-
         # calculate the As
         A = self.propagate(edge_index, x=x, edge_embedding=edge_embedding, lframes=lframes)
 
