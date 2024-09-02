@@ -25,7 +25,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         radial_dim: int,
         hidden_channels: list[int],
         predict_o3: bool = True,
-        cutoff: float | None = None,
+        cutoff: Union[float, None] = None,
         even_scalar_edge_dim: int = 0,
         concat_receiver: bool = True,
         exceptional_choice: str = "random",
@@ -97,8 +97,8 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         radial: Tensor,
         pos: Union[Tensor, PairTensor],
         edge_index: Tensor,
-        edge_attr: Tensor,
-        batch: Union[Tensor, PairTensor] = None,
+        edge_attr: Union[Tensor, None] = None,
+        batch: Union[Tensor, PairTensor, None] = None,
     ) -> LFrames:
         """Forward pass of the learning_lframes module.
 
@@ -107,8 +107,8 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             radial (Tensor): Radial tensor.
             pos (Tensor, PairTensor): Position tensor.
             edge_index (Tensor): Edge index tensor.
-            edge_attr (Tensor | None, optional): Edge attribute tensor, can only be even scalars for the layer to be equivariant. Defaults to None.
-            batch (Tensor, PairTensor | None, optional): Batch tensor. Defaults to None.
+            edge_attr (Tensor, None, optional): Edge attribute tensor, can only be even scalars for the layer to be equivariant. Defaults to None.
+            batch (Tensor, PairTensor, None, optional): Batch tensor. Defaults to None.
 
         Returns:
             LFrames: The local frames object containing the local frames.
@@ -147,8 +147,8 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         radial: Tensor,
         pos_i: Tensor,
         pos_j: Tensor,
-        batch_j: Tensor,
-        edge_attr: Tensor,
+        batch_j: Union[Tensor, None],
+        edge_attr: Union[Tensor, None],
     ) -> Tensor:
         """Computes the message passed between two nodes in the graph.
 
@@ -158,8 +158,8 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             radial (Tensor): The radial input.
             pos_i (Tensor): The position of node i.
             pos_j (Tensor): The position of node j.
-            batch_j (Tensor): The batch index of node j.
-            edge_attr (Tensor): The attributes of the edge between node i and node j.
+            batch_j (Tensor, None): The batch index of node j.
+            edge_attr (Tensor, None): The attributes of the edge between node i and node j.
 
         Returns:
             Tensor: The computed message.
@@ -172,7 +172,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             else:
                 inp = torch.cat([x_j, radial], dim=-1)
 
-        if self.even_scalar_edge_dim > 0:
+        if self.even_scalar_edge_dim > 0 and edge_attr is not None:
             inp = torch.cat([inp, edge_attr], dim=-1)
 
         mlp_out = self.mlp(x=inp, batch=batch_j)
@@ -208,8 +208,8 @@ class WrappedLearnedLFrames(Module):
         in_reps: Union[TensorReps, Irreps],
         hidden_channels: list[int],
         radial_module: RadialEmbedding,
-        max_radius: float = None,
-        edge_attr_tensor_reps: Union[TensorReps, Irreps] = None,
+        max_radius: Union[float, None] = None,
+        edge_attr_tensor_reps: Union[TensorReps, Irreps, None] = None,
         max_num_neighbors: int = 64,
         flatten: bool = True,
         **kwargs,
@@ -266,7 +266,7 @@ class WrappedLearnedLFrames(Module):
         batch: Union[Tensor, PairTensor],
         edge_attr: Union[Tensor, None] = None,
         edge_index: Union[Tensor, None] = None,
-    ) -> LFrames:
+    ) -> tuple[LFrames, Tensor]:
         """Performs the forward pass of the WrappedLearnedLocalFramesModule. Works even if x, pos,
         and batch are tuples.
 
@@ -279,6 +279,7 @@ class WrappedLearnedLFrames(Module):
 
         Returns:
             LFrames: The output local frames.
+            Tensor: The transformed feature tensor.
         """
         if edge_index is None:
             assert self.max_radius is not None, "need to provide edge_index if max_radius is None"
