@@ -69,7 +69,7 @@ class TensorMACE(TFMessagePassing):
             self.bias_1 = torch.nn.Parameter(torch.empty((self.hidden_dim, self.max_order)))
 
         self.atom_wise = atom_wise
-        if atom_wise:
+        if atom_wise and num_types is not None:
             self.param_2 = torch.nn.Parameter(
                 torch.empty((num_types, self.hidden_dim, self.max_order))
             )
