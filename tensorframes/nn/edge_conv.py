@@ -33,14 +33,14 @@ class EdgeConv(TFMessagePassing):
         out_channels: int,
         aggr: str = "add",
         spatial_dim: int = 3,
-        second_hidden_channels: List[int] = None,
-        radial_module: torch.nn.Module = None,
-        angular_module: torch.nn.Module = None,
+        second_hidden_channels: Union[List[int], None] = None,
+        radial_module: Union[torch.nn.Module, None] = None,
+        angular_module: Union[torch.nn.Module, None] = None,
         concatenate_edge_vec: bool = False,
         concatenate_receiver_features_in_mlp1: bool = False,
         concatenate_receiver_features_in_mlp2: bool = False,
         use_edge_feature_product: bool = False,
-        **mlp_kwargs: Dict
+        **mlp_kwargs: Dict,
     ):
         """
         Initialize the MLPConv layer.
@@ -94,7 +94,7 @@ class EdgeConv(TFMessagePassing):
             self.mlp1 = MLPWrapped(
                 in_channels=mlp1_in_dim,
                 hidden_channels=hidden_channels + [out_channels],
-                **mlp_kwargs
+                **mlp_kwargs,
             )
             self.mlp2 = None
         else:
@@ -107,7 +107,7 @@ class EdgeConv(TFMessagePassing):
             self.mlp2 = MLPWrapped(
                 in_channels=mlp2_in_dim,
                 hidden_channels=second_hidden_channels + [out_channels],
-                **mlp_kwargs
+                **mlp_kwargs,
             )
         self.out_dim = out_channels
         if use_edge_feature_product:

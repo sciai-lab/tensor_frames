@@ -1,4 +1,5 @@
 import copy
+from typing import Union
 
 import numpy as np
 import torch
@@ -31,7 +32,7 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
         radial_embedding: RadialEmbedding,
         normalize_edge_vec: bool = True,
         axis_specific_radial: bool = False,
-        spatial_dim=3,
+        spatial_dim: int = 3,
     ):
         """Initialize the AxisWiseEmbeddingFromRadial module.
 
@@ -160,10 +161,10 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
         num_gaussians: int = 10,
         normalized: bool = False,
         maximum_initial_range: float = 1.0,
-        minimum_initial_range: float | None = None,
+        minimum_initial_range: Union[float, None] = None,
         is_learnable: bool = True,
         intersection: float = 0.5,
-        gaussian_width: float | None = None,
+        gaussian_width: Union[float, None] = None,
     ) -> None:
         """Initialize the AxisWiseGaussianEmbedding module.
 

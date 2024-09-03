@@ -25,7 +25,7 @@ def double_gradient_safe_normalize(edge_vec: Tensor, eps: float = 1e-6) -> Tenso
 
 
 def compute_edge_vec(
-    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple] | None = None
+    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple, None] = None
 ) -> Tensor:
     """Compute the edge vectors between node positions and rotates them into the local frames of
     the receiving nodes.
@@ -93,9 +93,9 @@ class RadialEmbedding(Module):
 
     def forward(
         self,
-        pos: Union[Tensor, Tuple] | None = None,
-        edge_index: Tensor | None = None,
-        edge_vec: Tensor | None = None,
+        pos: Union[Tensor, Tuple, None] = None,
+        edge_index: Union[Tensor, None] = None,
+        edge_vec: Union[Tensor, None] = None,
     ) -> Tensor:
         """Forward pass of the RadialEmbedding module.
 
@@ -129,8 +129,8 @@ class BesselEmbedding(RadialEmbedding):
     def __init__(
         self,
         num_frequencies: int,
-        cutoff: float | None = None,
-        envelope: Module | None = None,
+        cutoff: Union[float, None] = None,
+        envelope: Union[Module, None] = None,
         flip_negative: bool = False,
     ) -> None:
         """Initialize the RadialEmbedding layer.
@@ -221,7 +221,7 @@ class GaussianEmbedding(RadialEmbedding):
         minimum_initial_range: float = 0.0,
         is_learnable: bool = True,
         intersection: float = 0.5,
-        gaussian_width: float | None = None,
+        gaussian_width: Union[float, None] = None,
     ) -> None:
         """Initialises the class. You can specify the number of gaussians and if the gaussians
         should be normalized. This function initialises the shift and scale parameters of the

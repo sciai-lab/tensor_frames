@@ -57,7 +57,7 @@ class TFMessagePassing(MessagePassing):
         """
         assert inputs[-1].get("lframes") is not None, "lframes are not in the propagate inputs"
 
-        self._lframes = inputs[-1].pop("lframes")
+        self._lframes = inputs[-1]["lframes"]
         self._edge_index = inputs[0]
 
         return inputs
