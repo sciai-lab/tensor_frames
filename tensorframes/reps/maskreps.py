@@ -12,8 +12,8 @@ transform_dict = {}
 class MaskReps(Reps):
     """The MaskReps class.
 
-    Represents a tensor representation using a Multi-Layer Perceptron (MLP), which computes a
-    vector. The vector is then multiplied element-wise with the input tensor.
+    Represents a representation using a Multi-Layer Perceptron (MLP), which computes a vector. The
+    vector is then multiplied element-wise with the input tensor.
     """
 
     def __init__(self, dim: int, reps_id: Union[str, int], spatial_dim: int = 3) -> None:
