@@ -215,3 +215,16 @@ def slerp_interpolation(rot1, rot2, t, uniform_step_adaptation=False):
         print("interp_rot has nan")
 
     return interp_rot
+
+
+if __name__ == "__main__":
+    from e3nn.o3 import rand_matrix
+
+    matrices = rand_matrix(100)
+    quats = matrix_to_quaternions(matrices)
+    matrices2 = quaternions_to_matrix(quats)
+    assert torch.allclose(matrices, matrices2, atol=1e-5)
+    print("matrices -> quaternions -> matrices: OK")
+    quats2 = matrix_to_quaternions(matrices2)
+    assert torch.allclose(quats, quats2, atol=1e-5)
+    print("quaternions -> matrices -> quaternions: OK")

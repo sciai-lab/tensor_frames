@@ -65,11 +65,12 @@ class DynamicSAModule(torch.nn.Module):
         self.concat_pos_to_features = concat_pos_to_features
         self.concat_lframes_to_features = concat_lframes_to_features
         self.knn_feature_reps = conv.in_reps
+        self.knn_feature_transform = self.knn_feature_reps.get_transform_class()
         self.transform_to_global_frame = transform_to_global_frame
         self.transform_pos = transform_pos
-        self.pos_trafo = None
+        self.pos_transform = None
         if self.transform_pos:
-            self.pos_trafo = TensorReps("1x1").get_transform_class()
+            self.pos_transform = TensorReps("1x1").get_transform_class()
 
     def forward(
         self,
@@ -100,18 +101,18 @@ class DynamicSAModule(torch.nn.Module):
 
         knn_features = torch.tensor([], device=pos.device) if x is None else x
         if self.transform_to_global_frame and x is not None:
-            knn_features = self.knn_feature_reps.transform_coeffs(
-                knn_features, lframes.view(-1, 3, 3).transpose(-1, -2)
+            knn_features = self.knn_feature_transform(
+                knn_features, LFrames(matrices=lframes.matrices.transpose(-1, -2))
             )
         if self.concat_pos_to_features:
             if self.transform_pos:
-                transformed_pos = self.pos_trafo(pos, lframes.view(-1, 3, 3))
+                transformed_pos = self.pos_transform(pos, lframes)
                 knn_features = torch.cat([knn_features, transformed_pos], dim=-1)
             else:
                 knn_features = torch.cat([knn_features, pos], dim=-1)
 
         if self.concat_lframes_to_features:
-            knn_features = torch.cat([knn_features, lframes.view(-1, 9)], dim=-1)
+            knn_features = torch.cat([knn_features, lframes.matrices.view(-1, 9)], dim=-1)
         edge_index = knn(knn_features, knn_features[idx], self.k, batch, batch[idx]).flip([0])
 
         x_dst = None if x is None else x[idx]

@@ -222,6 +222,7 @@ class GaussianEmbedding(RadialEmbedding):
         is_learnable: bool = True,
         intersection: float = 0.5,
         gaussian_width: Union[float, None] = None,
+        minimum_width: float = 1e-2,
     ) -> None:
         """Initialises the class. You can specify the number of gaussians and if the gaussians
         should be normalized. This function initialises the shift and scale parameters of the
@@ -235,6 +236,7 @@ class GaussianEmbedding(RadialEmbedding):
             is_learnable (bool, optional): Defines if the parameters of the gaussians should be learnable. Defaults to True.
             intersection (float, optional): The intersection of the gaussians, used to compute the width if not specified. Defaults to 0.5.
             gaussian_width (float, optional): The width of the gaussian functions. If None it calculates the gaussian width. Defaults to None.
+            minimum_width (float, optional): The minimum width of the gaussian functions. Defaults to 1e-3.
         """
         super().__init__(out_dim=num_gaussians)
 
@@ -262,6 +264,7 @@ class GaussianEmbedding(RadialEmbedding):
             )
 
         self.normalized = normalized
+        self.minimum_width_squared = minimum_width**2
 
     def compute_embedding(self, norm: Tensor) -> Tensor:
         """Calculates the embedding of the edge attributes based on the gaussian functions.
@@ -278,7 +281,7 @@ class GaussianEmbedding(RadialEmbedding):
             Tensor: The edge attributes. Shape: (E, num_gauss)
         """
         squared_diff = torch.square(norm - self.shift)
-        squared_scale = torch.square(self.scale)
+        squared_scale = torch.square(self.scale) + self.minimum_width_squared
 
         # calculate the gaussian
         gaussian = torch.exp(-squared_diff / (2 * squared_scale))
