@@ -165,7 +165,7 @@ class InvLFrames(LFrames):
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = 1 / self.lframes.det
+            self._det = self.lframes.det
         return self._det
 
     @property
@@ -431,9 +431,7 @@ class ChangeOfLFrames(LFrames):
         Returns:
             ChangeOfLFrames: ChangeOfLFrames object containing the inverse rotation matrices.
         """
-        return ChangeOfLFrames(
-            self.lframes_end.inverse_lframes(), self.lframes_start.inverse_lframes()
-        )
+        return ChangeOfLFrames(lframes_start=self.lframes_end, lframes_end=self.lframes_start)
 
 
 if __name__ == "__main__":
