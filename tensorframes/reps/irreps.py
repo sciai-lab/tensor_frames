@@ -4,8 +4,8 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
-from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
-from tensorframes.utils.wigner import _Jd
+from tensorframes.lframes.lframes import LFrames
+from tensorframes.reps.reps import Reps
 
 
 class Irrep(Tuple):
@@ -126,7 +126,7 @@ class _IrMulRep(Tuple):
         return f"{self.mul}x{self.rep}"
 
 
-class Irreps(Tuple):
+class Irreps(Tuple, Reps):
     """Represents a collection of irreducible representations (irreps) of a group."""
 
     def __new__(cls, irreps, spatial_dim=3):
@@ -376,19 +376,12 @@ class IrrepsTransform(Module):
         # alternative: calculate these once on the device and then cache them.
         self.register_buffer("odd_tensor", odd_tensor)
 
-        # register the J_matrices as buffer:
-        # this is a bit hacky with string in the name:
-        for l_val in self.sorted_l:
-            self.register_buffer(f"J_matrix_{l_val}", _Jd[l_val].float())
-
-    def forward(
-        self, coeffs: Tensor, basis_change: Union[LFrames, ChangeOfLFrames], inplace: bool = False
-    ) -> Tensor:
+    def forward(self, coeffs: Tensor, basis_change: LFrames, inplace: bool = False) -> Tensor:
         """Applies the transformation to the input coefficients.
 
         Args:
             coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the irreps.
-            basis_change (ChangeOfLFrames): The change of frames to be applied. With matrices attribute of shape `(N, 3, 3)`.
+            basis_change (LFrames): The change of frames to be applied. With matrices attribute of shape `(N, 3, 3)`.
             inplace (bool, optional): Whether to perform the transformation in-place. Defaults to False.
 
         Returns:
@@ -410,9 +403,6 @@ class IrrepsTransform(Module):
         if self.irreps.dim == 0:
             return output_coeffs
 
-        if self.odd_tensor.device != coeffs.device:
-            self.odd_tensor = self.odd_tensor.to(coeffs.device)
-
         N = coeffs.shape[0]
 
         for i, l in enumerate(self.sorted_l):
@@ -425,8 +415,7 @@ class IrrepsTransform(Module):
                 l_tensor = coeffs[:, l_mask].view(N, -1, 2 * l + 1)
 
             # perform the transformation:
-            J_matrix = getattr(self, f"J_matrix_{l}")
-            wigner = basis_change.wigner_D(l, J=J_matrix).transpose(-1, -2)
+            wigner = basis_change.wigner_D(l).transpose(-1, -2)
             if self.is_sorted:
                 output_coeffs[:, start_idx:end_idx] = torch.matmul(l_tensor, wigner).flatten(1)
             else:

@@ -37,10 +37,10 @@ class AngularEmbedding(torch.nn.Module):
 
     def forward(
         self,
-        pos: Union[Tensor, Tuple] | None = None,
-        edge_index: Tensor | None = None,
-        lframes: LFrames | None = None,
-        edge_vec: Tensor | None = None,
+        pos: Union[Tensor, Tuple, None] = None,
+        edge_index: Union[Tensor, None] = None,
+        lframes: Union[LFrames, None] = None,
+        edge_vec: Union[Tensor, None] = None,
     ) -> Tensor:
         """Forward pass of the AngularEmbedding module.
 

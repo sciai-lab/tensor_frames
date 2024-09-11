@@ -1,3 +1,5 @@
+from typing import Union
+
 import torch
 from e3nn.o3 import rand_matrix
 from torch import Tensor
@@ -18,7 +20,7 @@ class ThreeNNLFrames(torch.nn.Module):
         super().__init__()
 
     def forward(
-        self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
+        self, pos: Tensor, idx: Union[Tensor, None] = None, batch: Union[Tensor, None] = None
     ) -> LFrames:
         """Forward pass of the LFrames module.
 
@@ -78,14 +80,14 @@ class RandomLFrames(torch.nn.Module):
         self.flip_probability = flip_probability
 
     def forward(
-        self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
+        self, pos: Tensor, idx: Union[Tensor, None] = None, batch: Union[Tensor, None] = None
     ) -> LFrames:
         """Forward pass of the LFrames module.
 
         Args:
             pos (Tensor): The input tensor representing the positions.
-            idx (Tensor | None, optional): The indices to select from the input tensor. Defaults to None.
-            batch (Tensor | None, optional): The batch tensor. Defaults to None.
+            idx (Tensor, optional): The indices to select from the input tensor. Defaults to None.
+            batch (Tensor, optional): The batch tensor. Defaults to None.
 
         Returns:
             LFrames: The output LFrames.
@@ -108,14 +110,14 @@ class RandomGlobalLFrames(torch.nn.Module):
         super().__init__()
 
     def forward(
-        self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
+        self, pos: Tensor, idx: Union[Tensor, None] = None, batch: Union[Tensor, None] = None
     ) -> LFrames:
         """Applies forward pass of the LFrames module.
 
         Args:
             pos (Tensor): The input tensor representing the positions.
-            idx (Tensor | None, optional): The indices tensor. Defaults to None.
-            batch (Tensor | None, optional): The batch tensor. Defaults to None.
+            idx (Tensor, optional): The indices tensor. Defaults to None.
+            batch (Tensor, optional): The batch tensor. Defaults to None.
 
         Returns:
             LFrames: The output LFrames tensor.
@@ -141,15 +143,15 @@ class IdentityLFrames(torch.nn.Module):
         super().__init__()
 
     def forward(
-        self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
+        self, pos: Tensor, idx: Union[Tensor, None] = None, batch: Union[Tensor, None] = None
     ) -> LFrames:
         """Forward pass of the LFrames module.
 
         Args:
             pos (Tensor): The input tensor of shape (N, 3) representing the positions.
-            idx (Tensor | None): The index tensor of shape (N,) representing the indices to select from `pos`.
+            idx (Tensor): The index tensor of shape (N,) representing the indices to select from `pos`.
                 If None, all indices are selected.
-            batch (Tensor | None): The batch tensor of shape (N,) representing the batch indices.
+            batch (Tensor): The batch tensor of shape (N,) representing the batch indices.
 
         Returns:
             LFrames: The output LFrames object.

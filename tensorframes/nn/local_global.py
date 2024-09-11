@@ -1,21 +1,18 @@
-from typing import Union
-
 from torch import Tensor
 from torch.nn import Module
 
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.reps import Reps
 
 
 class FromGlobalToLocalFrame(Module):
     """Transforms a tensor with a given representation from a global frame to a local frame."""
 
-    def __init__(self, reps: Union[TensorReps, Irreps]) -> None:
+    def __init__(self, reps: Reps) -> None:
         """Initialize the FromGlobalToLocalFrame Module.
 
         Args:
-            reps (Union[TensorReps, Irreps]): The representation which is used to transform the features.
+            reps (Reps): The representation which is used to transform the features.
         """
         super().__init__()
         self.reps = reps
@@ -37,11 +34,11 @@ class FromGlobalToLocalFrame(Module):
 class FromLocalToGlobalFrame(Module):
     """Transforms a tensor with a given representation from a local frame to a global frame."""
 
-    def __init__(self, reps: Union[TensorReps, Irreps]) -> None:
+    def __init__(self, reps: Reps) -> None:
         """Initialize the FromLocalToGlobalFrame Module.
 
         Args:
-            reps (Union[TensorReps, Irreps]): The representation which is used to transform the features.
+            reps (Reps): The representation which is used to transform the features.
         """
         super().__init__()
         self.reps = reps
@@ -57,4 +54,4 @@ class FromLocalToGlobalFrame(Module):
         Returns:
             Tensor: The output tensor.
         """
-        return self.trafo_class(x, LFrames(matrices=lframes.matrices.transpose(-1, -2)))
+        return self.trafo_class(x, lframes.inverse_lframes())

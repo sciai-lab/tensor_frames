@@ -7,6 +7,7 @@ from tensorframes.reps.tensorreps import TensorReps
 
 
 def test_tensormace_init_and_forward():
+    """Test the initialization and forward pass of the TensorMACE model."""
     in_tensor_reps = TensorReps("10x0n+5x1n+2x2n")
     out_tensor_reps = Irreps("10x0n+5x1n+2x2n")
     edge_emb_dim = 32
@@ -14,7 +15,15 @@ def test_tensormace_init_and_forward():
     order = 3
     dropout = 0.1
 
-    model = TensorMACE(in_tensor_reps, out_tensor_reps, edge_emb_dim, hidden_dim, order, dropout)
+    model = TensorMACE(
+        in_tensor_reps=in_tensor_reps,
+        out_tensor_reps=out_tensor_reps,
+        edge_emb_dim=edge_emb_dim,
+        hidden_dim=hidden_dim,
+        max_order=order,
+        dropout=dropout,
+        atom_wise=False,
+    )
 
     x = torch.randn(10, in_tensor_reps.dim)
     # create a big edge_index

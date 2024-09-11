@@ -11,8 +11,7 @@ from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.envelope import EnvelopePoly
 from tensorframes.nn.linear import EdgeLinear, HeadedEdgeLinear, HeadedLinear
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.reps import Reps
 
 
 class TensorFormer(TFMessagePassing):
@@ -23,20 +22,20 @@ class TensorFormer(TFMessagePassing):
 
     def __init__(
         self,
-        tensor_reps: Union[TensorReps, Irreps],
+        tensor_reps: Reps,
         num_heads: int,
         hidden_layers: list[int],
         hidden_value_dim: int,
         hidden_scalar_dim: int,
         hidden_activation: Type[Module] = torch.nn.SiLU,
         edge_embedding_dim: int = 0,
-        scalar_activation_function: Module | None = None,
+        scalar_activation_function: Union[Module, None] = None,
         value_activation_function: Module | None = None,
         dropout_attention: float = 0.0,
         dropout_mlp: float = 0.0,
         stochastic_depth: float = 0.0,
         radial_cutoff: float = 5.0,
-        envelope: Module | None = None,
+        envelope: Union[Module, None] = None,
         softmax: bool = False,
         attention_weight_dropout: float = 0.0,
         bias: bool = True,
@@ -44,7 +43,7 @@ class TensorFormer(TFMessagePassing):
         """Initialize the TensorFormer model.
 
         Args:
-            tensor_reps (Union[TensorReps, Irreps]): The representation of the features. Is the same for input and output features, because of the skip connection.
+            tensor_reps (Reps): The representation of the features. Is the same for input and output features, because of the skip connection.
             num_heads (int): The number of attention heads.
             hidden_layers (list[int]): The sizes of the hidden layers in the MLP, which is evaluated after the attention step.
             hidden_value_dim (int): The dimension of the hidden value vectors.
@@ -144,7 +143,7 @@ class TensorFormer(TFMessagePassing):
         edge_index: Tensor,
         pos: Tensor,
         edge_embedding: Tensor,
-        batch: Tensor | None = None,
+        batch: Union[Tensor, None] = None,
     ):
         """Forward pass of the TensorFormer module. TODO: insert arxiv paper reference if we have
         one.
@@ -204,7 +203,7 @@ class TensorFormer(TFMessagePassing):
         ptr: Tensor,
         size_i: int,
         edge_embedding: Tensor,
-        batch_i: Tensor | None = None,
+        batch_i: Union[Tensor, None] = None,
     ):
         """Calculates the message passing operation for the Tensorformer model.
 

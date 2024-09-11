@@ -7,14 +7,14 @@ from tensorframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import compute_edge_vec
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
-from tensorframes.reps import Irreps, TensorReps
+from tensorframes.reps.reps import Reps
 
 
 class EdgeConv(TFMessagePassing):
     """Multi-Layer Perceptron Convolutional layer for graph neural networks.
 
     Attributes:
-        in_reps (Union[TensorReps, Irreps, str]): Input tensor representations or irreps.
+        in_reps (Reps): Input tensor representations or irreps.
         radial_module (torch.nn.Module): Radial module.
         angular_module (torch.nn.Module): Angular module.
         concatenate_edge_vec (bool): Whether to concatenate edge vectors.
@@ -28,19 +28,19 @@ class EdgeConv(TFMessagePassing):
 
     def __init__(
         self,
-        in_reps: Union[TensorReps, Irreps],
+        in_reps: Reps,
         hidden_channels: List[int],
         out_channels: int,
         aggr: str = "add",
         spatial_dim: int = 3,
-        second_hidden_channels: List[int] = None,
-        radial_module: torch.nn.Module = None,
-        angular_module: torch.nn.Module = None,
+        second_hidden_channels: Union[List[int], None] = None,
+        radial_module: Union[torch.nn.Module, None] = None,
+        angular_module: Union[torch.nn.Module, None] = None,
         concatenate_edge_vec: bool = False,
         concatenate_receiver_features_in_mlp1: bool = False,
         concatenate_receiver_features_in_mlp2: bool = False,
         use_edge_feature_product: bool = False,
-        **mlp_kwargs: Dict
+        **mlp_kwargs: Dict,
     ):
         """
         Initialize the MLPConv layer.
@@ -50,7 +50,7 @@ class EdgeConv(TFMessagePassing):
         MLP2(f_i, aggr(MLP1(f_i, transformed f_j) odot linear(radial_embedding, angular_embedding))).
 
         Args:
-            in_reps (Union[TensorReps, Irreps]): Input tensor representations or irreps.
+            in_reps (Reps): Input tensor representations or irreps.
             hidden_channels (list[int]): List of hidden channel sizes.
             out_channels (int): Number of output channels.
             aggr (str, optional): Aggregation method. Defaults to "add".
@@ -94,7 +94,7 @@ class EdgeConv(TFMessagePassing):
             self.mlp1 = MLPWrapped(
                 in_channels=mlp1_in_dim,
                 hidden_channels=hidden_channels + [out_channels],
-                **mlp_kwargs
+                **mlp_kwargs,
             )
             self.mlp2 = None
         else:
@@ -107,7 +107,7 @@ class EdgeConv(TFMessagePassing):
             self.mlp2 = MLPWrapped(
                 in_channels=mlp2_in_dim,
                 hidden_channels=second_hidden_channels + [out_channels],
-                **mlp_kwargs
+                **mlp_kwargs,
             )
         self.out_dim = out_channels
         if use_edge_feature_product:

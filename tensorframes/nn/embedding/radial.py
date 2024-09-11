@@ -6,7 +6,6 @@ from torch import Tensor
 from torch.nn import Module
 
 from tensorframes.lframes import LFrames
-from tensorframes.reps.tensorreps import TensorReps
 
 
 def double_gradient_safe_norm(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
@@ -26,7 +25,7 @@ def double_gradient_safe_normalize(edge_vec: Tensor, eps: float = 1e-6) -> Tenso
 
 
 def compute_edge_vec(
-    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple] | None = None
+    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple, None] = None
 ) -> Tensor:
     """Compute the edge vectors between node positions and rotates them into the local frames of
     the receiving nodes.
@@ -54,8 +53,9 @@ def compute_edge_vec(
 
     edge_vec = pos_j - pos_i
     if lframes[1] is not None:
-        rep_trafo = TensorReps("1x1n").get_transform_class()
-        edge_vec = rep_trafo.forward(edge_vec, lframes[1].index_select(edge_index[1]))
+        # TODO: Make this without einsum, can't use Reps here.
+        matrices = lframes[1].index_select(edge_index[1]).matrices
+        edge_vec = torch.einsum("ijk,ik->ij", matrices, edge_vec)
 
     return edge_vec
 
@@ -93,9 +93,9 @@ class RadialEmbedding(Module):
 
     def forward(
         self,
-        pos: Union[Tensor, Tuple] | None = None,
-        edge_index: Tensor | None = None,
-        edge_vec: Tensor | None = None,
+        pos: Union[Tensor, Tuple, None] = None,
+        edge_index: Union[Tensor, None] = None,
+        edge_vec: Union[Tensor, None] = None,
     ) -> Tensor:
         """Forward pass of the RadialEmbedding module.
 
@@ -129,8 +129,8 @@ class BesselEmbedding(RadialEmbedding):
     def __init__(
         self,
         num_frequencies: int,
-        cutoff: float | None = None,
-        envelope: Module | None = None,
+        cutoff: Union[float, None] = None,
+        envelope: Union[Module, None] = None,
         flip_negative: bool = False,
     ) -> None:
         """Initialize the RadialEmbedding layer.
@@ -221,7 +221,7 @@ class GaussianEmbedding(RadialEmbedding):
         minimum_initial_range: float = 0.0,
         is_learnable: bool = True,
         intersection: float = 0.5,
-        gaussian_width: float | None = None,
+        gaussian_width: Union[float, None] = None,
         minimum_width: float = 1e-2,
     ) -> None:
         """Initialises the class. You can specify the number of gaussians and if the gaussians
