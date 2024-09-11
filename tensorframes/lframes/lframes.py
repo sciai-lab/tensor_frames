@@ -186,7 +186,6 @@ class InvLFrames(LFrames):
         Returns:
             torch.Tensor: Tensor containing the Euler angles.
         """
-        # TODO: Make this right
         if self._angles is None:
             self._angles = -self.lframes.angles.flip((-1,))
         return self._angles
