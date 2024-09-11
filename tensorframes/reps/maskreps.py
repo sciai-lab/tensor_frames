@@ -10,13 +10,14 @@ transform_dict = {}
 
 
 class MaskReps(Reps):
-    """The MLPReps class.
+    """The MaskReps class.
 
-    Represents a tensor representation using a Multi-Layer Perceptron (MLP).
+    Represents a tensor representation using a Multi-Layer Perceptron (MLP), which computes a
+    vector. The vector is then multiplied element-wise with the input tensor.
     """
 
     def __init__(self, dim: int, reps_id: Union[str, int], spatial_dim: int = 3) -> None:
-        """Initialize the MLPReps object.
+        """Initialize the MaskReps object.
 
         Args:
             dim (int): The dimension of the representations.
@@ -29,12 +30,12 @@ class MaskReps(Reps):
         self.spatial_dim = spatial_dim
 
     def __repr__(self) -> str:
-        """Returns a string representation of the MLPReps object.
+        """Returns a string representation of the MaskReps object.
 
         Returns:
-            str: A string representation of the MLPReps object.
+            str: A string representation of the MaskReps object.
         """
-        return f"MLPReps(dim={self.dim}, reps_id={self._reps_id}, spatial_dim={self.spatial_dim})"
+        return f"MaskReps(dim={self.dim}, reps_id={self._reps_id}, spatial_dim={self.spatial_dim})"
 
     @property
     def dim(self) -> int:
@@ -45,27 +46,27 @@ class MaskReps(Reps):
         """
         return self._dim
 
-    def get_transform_class(self) -> "MLPRepsTransform":
-        """Returns an instance of MLPRepsTransform associated with the current MLPReps object.
+    def get_transform_class(self) -> "MaskRepsTransform":
+        """Returns an instance of MaskRepsTransform associated with the current MaskReps object.
 
         Returns:
-            MLPRepsTransform: An instance of MLPRepsTransform.
+            MaskRepsTransform: An instance of MaskRepsTransform.
         """
 
         if transform_dict.get(self._reps_id) is None:
-            transform_dict[self._reps_id] = MLPRepsTransform(self.dim, self.spatial_dim)
+            transform_dict[self._reps_id] = MaskRepsTransform(self.dim, self.spatial_dim)
 
         return transform_dict[self._reps_id]
 
 
-class MLPRepsTransform(torch.nn.Module):
-    """The MLPRepsTransform class.
+class MaskRepsTransform(torch.nn.Module):
+    """The MaskRepsTransform class.
 
     Applies a MLP to the input tensor.
     """
 
     def __init__(self, dim: int, spatial_dim: int) -> None:
-        """Initialize the MLPRepsTransform object.
+        """Initialize the MaskRepsTransform object.
 
         Args:
             dim (int): The dimension of the representations.
