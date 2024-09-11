@@ -307,11 +307,9 @@ class IndexSelectLFrames(LFrames):
         return self._angles
 
     def index_select(self, indices: torch.Tensor) -> LFrames:
-        """Selects the rotation matrices corresponding to the given indices.
-
-        Is not allowed for IndexSelectLFrames.
-        """
-        raise NotImplementedError("IndexSelectLFrames cannot be indexed again.")
+        """Selects the rotation matrices corresponding to the given indices."""
+        indexed_indices = self.indices.index_select(0, indices)
+        return IndexSelectLFrames(lframes=self.lframes, indices=indexed_indices)
 
     def wigner_D(self, l: int) -> torch.Tensor:
         """Wigner D matrices corresponding to the rotation matrices.
