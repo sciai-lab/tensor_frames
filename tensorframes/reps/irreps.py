@@ -232,6 +232,19 @@ class Irreps(Tuple, Reps):
         return sum(mul_ir.mul for mul_ir in self)
 
     @property
+    def is_sorted(self) -> bool:
+        """
+        bool: Whether the tensor reps are sorted by the order of the reps.
+        """
+        if len(self) <= 1:
+            return True
+        else:
+            return all(
+                mul_ir.rep.angular_momentum <= self[i + 1].rep.angular_momentum
+                for i, mul_ir in enumerate(self[:-1])
+            )
+
+    @property
     def reps(self) -> set:
         """Set[Irrep]: The set of irreducible representations in the `Irreps` object."""
         return {rep for _, rep in self}
