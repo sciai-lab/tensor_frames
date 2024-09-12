@@ -165,7 +165,7 @@ class InvLFrames(LFrames):
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = 1 / self.lframes.det
+            self._det = self.lframes.det
         return self._det
 
     @property

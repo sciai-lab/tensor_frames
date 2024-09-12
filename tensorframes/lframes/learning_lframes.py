@@ -114,9 +114,13 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         Returns:
             LFrames: The local frames object containing the local frames.
         """
-        batch = (
-            None if batch is None else (batch[0].view(-1, 1), batch[1].view(-1, 1))
-        )  # needed for index-magic
+
+        # needed for index-magic in message
+        if isinstance(batch, tuple):
+            batch = None if batch is None else (batch[0].view(-1, 1), batch[1].view(-1, 1))
+        else:
+            batch = None if batch is None else batch.view(-1, 1)
+
         vecs = self.propagate(
             edge_index, x=x, radial=radial, pos=pos, edge_attr=edge_attr, batch=batch
         )

@@ -12,7 +12,7 @@ transform_dict = {}
 class MLPReps(Reps):
     """The MLPReps class.
 
-    Represents a tensor representation using a Multi-Layer Perceptron (MLP).
+    Represents a representation using a Multi-Layer Perceptron (MLP).
     """
 
     def __init__(self, dim: int, reps_id: Union[str, int], spatial_dim: int = 3) -> None:
