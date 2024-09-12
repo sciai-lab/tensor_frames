@@ -6,6 +6,7 @@ from torch.nn import Module
 from torch_geometric.nn import MessagePassing, radius
 from torch_geometric.typing import PairTensor
 
+from tensorframes.lframes.classical_lframes import LFramesPredictionModule
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import RadialEmbedding
@@ -15,7 +16,7 @@ from tensorframes.reps import Irreps, TensorReps
 from tensorframes.reps.utils import extract_even_scalar_mask_from_reps
 
 
-class LearnedGramSchmidtLFrames(MessagePassing):
+class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
     """The LearnedGramSchmidtLFrames class is a message passing neural network that learns local
     frames from its neighborhood."""
 
