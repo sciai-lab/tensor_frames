@@ -56,9 +56,9 @@ def compute_edge_vec(
 
     edge_vec = pos_j - pos_i
     if lframes[1] is not None:
-        # TODO: Make this without einsum, can't use Reps here.
         matrices = lframes[1].index_select(edge_index[1]).matrices
-        edge_vec = torch.einsum("ijk,ik->ij", matrices, edge_vec)
+        # edge_vec = torch.einsum("ijk,ik->ij", matrices, edge_vec)
+        edge_vec = torch.bmm(matrices, edge_vec.unsqueeze(-1)).squeeze(-1)
 
     return edge_vec
 
@@ -173,7 +173,7 @@ class BesselEmbedding(RadialEmbedding):
             Tensor: The computed embedding.
         """
         if self.envelope is None:
-            out = torch.sin(norm * self.frequencies) / (norm + 1e-9)
+            out = torch.sin(norm * self.frequencies) / (norm + 1e-6)
         else:
             norm_scaled = norm * self.inv_cutoff
             norm_env = self.envelope(norm_scaled)
@@ -181,7 +181,7 @@ class BesselEmbedding(RadialEmbedding):
                 norm_env
                 * self.norm_const
                 * torch.sin(norm_scaled * self.frequencies)
-                / (norm + 1e-9)
+                / (norm + 1e-6)
             )
 
         if self.flip_negative:

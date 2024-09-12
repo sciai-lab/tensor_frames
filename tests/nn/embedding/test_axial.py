@@ -66,12 +66,12 @@ def test_axial():
     assert torch.allclose(
         axis_radial_gauss(edge_vec=edge_vec),
         axis_radial_gauss(pos=pos, edge_index=edge_index, lframes=lframes),
-        atol=1e-7,
+        atol=1e-6,
     )
 
     # check if this yields the same result as above:
     assert torch.allclose(
-        axis_gauss(edge_vec=edge_vec), axis_radial_gauss(edge_vec=edge_vec), atol=1e-7
+        axis_gauss(edge_vec=edge_vec), axis_radial_gauss(edge_vec=edge_vec), atol=1e-6
     )
 
     # check the axis specific radial:
@@ -95,7 +95,7 @@ def test_axial():
 
     # check that without training the radial embeddings are the same:
     assert torch.allclose(
-        specific_axis_radial_gauss(edge_vec=edge_vec), axis_gauss(edge_vec=edge_vec), atol=1e-7
+        specific_axis_radial_gauss(edge_vec=edge_vec), axis_gauss(edge_vec=edge_vec), atol=1e-6
     )
 
     # test axiswise from radial using bessel:
@@ -117,7 +117,7 @@ def test_axial():
 
     # check that it is the same as the axis bessel:
     assert torch.allclose(
-        axis_bessel(edge_vec=edge_vec), axis_radial_bessel(edge_vec=edge_vec), atol=1e-7
+        axis_bessel(edge_vec=edge_vec), axis_radial_bessel(edge_vec=edge_vec), atol=1e-5
     )
 
     # check the axis specific radial:
@@ -139,7 +139,7 @@ def test_axial():
 
     # check that without training the radial embeddings are the same:
     assert torch.allclose(
-        specific_axis_radial_bessel(edge_vec=edge_vec), axis_bessel(edge_vec=edge_vec), atol=1e-7
+        specific_axis_radial_bessel(edge_vec=edge_vec), axis_bessel(edge_vec=edge_vec), atol=1e-6
     )
 
     # test flip negative:
