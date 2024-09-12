@@ -117,7 +117,10 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
 
         # needed for index-magic in message
         if isinstance(batch, tuple):
-            batch = None if batch is None else (batch[0].view(-1, 1), batch[1].view(-1, 1))
+            batch = (
+                None if batch[0] is None else batch[0].view(-1, 1),
+                None if batch[1] is None else batch[1].view(-1, 1),
+            )
         else:
             batch = None if batch is None else batch.view(-1, 1)
 
