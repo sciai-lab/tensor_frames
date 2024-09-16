@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 
 
-def symmetric_non_small_noise_like(x, eps: float = 1e-6, scale: float = 1) -> Tensor:
+def symmetric_non_small_noise_like(x: Tensor, eps: float = 1e-6, scale: float = 1) -> Tensor:
     """Generates a tensor of random noise with symmetric values that are not too small.
 
     Args:
