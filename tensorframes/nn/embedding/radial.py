@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import Module
+from torch_geometric.typing import PairTensor
 
 from tensorframes.lframes import LFrames
 
@@ -25,15 +26,17 @@ def double_gradient_safe_normalize(edge_vec: Tensor, eps: float = 1e-6) -> Tenso
 
 
 def compute_edge_vec(
-    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple, None] = None
+    pos: Union[Tensor, PairTensor],
+    edge_index: Tensor,
+    lframes: Union[LFrames, Tuple[LFrames, LFrames], None] = None,
 ) -> Tensor:
     """Compute the edge vectors between node positions and rotates them into the local frames of
     the receiving nodes.
 
     Args:
-        pos (Union[Tensor, Tuple]): The positions of the atoms. Can be a single tensor or a tuple of tensors.
+        pos (Union[Tensor, PairTensor]): The positions of the atoms. Can be a single tensor or a tuple of tensors.
         edge_index (Tensor): The edge index representing the connections between atoms.
-        lframes (Union[Tensor, Tuple], optional): The local frames of the atoms. Can be a single tensor or a tuple of tensors. Defaults to None.
+        lframes (Union[LFrames, Tuple[LFrames, LFrames]], optional): The local frames of the atoms. Can be a single tensor or a tuple of tensors. Defaults to None.
 
     Returns:
         Tensor: The computed edge vectors.
@@ -53,9 +56,9 @@ def compute_edge_vec(
 
     edge_vec = pos_j - pos_i
     if lframes[1] is not None:
-        # TODO: Make this without einsum, can't use Reps here.
         matrices = lframes[1].index_select(edge_index[1]).matrices
-        edge_vec = torch.einsum("ijk,ik->ij", matrices, edge_vec)
+        # edge_vec = torch.einsum("ijk,ik->ij", matrices, edge_vec)
+        edge_vec = torch.bmm(matrices, edge_vec.unsqueeze(-1)).squeeze(-1)
 
     return edge_vec
 
@@ -67,7 +70,7 @@ class RadialEmbedding(Module):
         compute_embedding(norm: Tensor) -> Tensor:
             Computes the embedding based on the given norm.
 
-        forward(pos: Union[Tensor, Tuple], edge_index: Tensor, edge_vec: Tensor = None) -> Tensor:
+        forward(pos: Union[Tensor, PairTensor], edge_index: Tensor, edge_vec: Tensor = None) -> Tensor:
             Forward pass of the RadialEmbedding module.
     """
 
@@ -93,7 +96,7 @@ class RadialEmbedding(Module):
 
     def forward(
         self,
-        pos: Union[Tensor, Tuple, None] = None,
+        pos: Union[Tensor, PairTensor, None] = None,
         edge_index: Union[Tensor, None] = None,
         edge_vec: Union[Tensor, None] = None,
     ) -> Tensor:
@@ -102,7 +105,7 @@ class RadialEmbedding(Module):
         Either pos and edge_index or edge_vec must be provided.
 
         Args:
-            pos (Union[Tensor, Tuple], optional): The position tensor or tuple.
+            pos (Union[Tensor, PairTensor], optional): The position tensor or tuple.
             edge_index (Tensor, optional): The edge index tensor.
             edge_vec (Tensor, optional): The edge vector tensor. Defaults to None.
 
@@ -170,7 +173,7 @@ class BesselEmbedding(RadialEmbedding):
             Tensor: The computed embedding.
         """
         if self.envelope is None:
-            out = torch.sin(norm * self.frequencies) / (norm + 1e-9)
+            out = torch.sin(norm * self.frequencies) / (norm + 1e-6)
         else:
             norm_scaled = norm * self.inv_cutoff
             norm_env = self.envelope(norm_scaled)
@@ -178,7 +181,7 @@ class BesselEmbedding(RadialEmbedding):
                 norm_env
                 * self.norm_const
                 * torch.sin(norm_scaled * self.frequencies)
-                / (norm + 1e-9)
+                / (norm + 1e-6)
             )
 
         if self.flip_negative:

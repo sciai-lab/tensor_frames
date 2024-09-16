@@ -9,7 +9,15 @@ from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 
 
-class ThreeNNLFrames(torch.nn.Module):
+class LFramesPredictionModule(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, *args, **kwargs) -> LFrames:
+        assert NotImplementedError, "Subclasses must implement this method."
+
+
+class ThreeNNLFrames(LFramesPredictionModule):
     """Computes local frames using the 3-nearest neighbors.
 
     The Frames are O(3) equivariant.
@@ -67,7 +75,7 @@ class ThreeNNLFrames(torch.nn.Module):
         return LFrames(matrices)
 
 
-class RandomLFrames(torch.nn.Module):
+class RandomLFrames(LFramesPredictionModule):
     """Randomly generates local frames for each node."""
 
     def __init__(self, flip_probability=0.5) -> None:
@@ -102,7 +110,7 @@ class RandomLFrames(torch.nn.Module):
         return LFrames(lframes)
 
 
-class RandomGlobalLFrames(torch.nn.Module):
+class RandomGlobalLFrames(LFramesPredictionModule):
     """Randomly generates a global frame."""
 
     def __init__(self) -> None:
@@ -135,7 +143,7 @@ class RandomGlobalLFrames(torch.nn.Module):
         return LFrames(matrix.repeat(pos[idx].shape[0], 1, 1))
 
 
-class IdentityLFrames(torch.nn.Module):
+class IdentityLFrames(LFramesPredictionModule):
     """Identity local frames."""
 
     def __init__(self) -> None:

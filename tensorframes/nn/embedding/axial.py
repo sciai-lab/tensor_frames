@@ -128,7 +128,7 @@ class AxisWiseBesselEmbedding(AngularEmbedding):
         tmp_mul = torch.einsum("ij,jk->ijk", edge_vec, self.frequencies)
 
         embed = torch.einsum(
-            "ijk,ij->ijk", torch.sin(tmp_mul), 1 / (edge_vec + 1e-9)
+            "ijk,ij->ijk", torch.sin(tmp_mul), 1 / (edge_vec + 1e-6)
         )  # shape E x 3
 
         if self.dual_sided:
@@ -165,6 +165,7 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
         is_learnable: bool = True,
         intersection: float = 0.5,
         gaussian_width: Union[float, None] = None,
+        minimum_width: float = 1e-2,
     ) -> None:
         """Initialize the AxisWiseGaussianEmbedding module.
 
@@ -203,6 +204,7 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
             self.register_buffer("shift", torch.linspace(0, maximum_initial_range, num_gaussians))
 
         self.normalized = normalized
+        self.minimum_width_squared = minimum_width**2
 
     def compute_embedding(self, edge_vec: torch.Tensor) -> torch.Tensor:
         """Computes the embedding for the given edge vector.
@@ -215,7 +217,7 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
         """
         edge_vec = double_gradient_safe_normalize(edge_vec)
         squared_diff = torch.square(edge_vec.unsqueeze(2) - self.shift)
-        squared_scale = torch.square(self.scale)
+        squared_scale = torch.square(self.scale) + self.minimum_width_squared
 
         # calculate the gaussian
         gaussian = torch.exp(-squared_diff / (2 * squared_scale))

@@ -10,6 +10,45 @@ from tensorframes.nn.embedding.radial import (
 from tensorframes.nn.envelope import EnvelopePoly
 
 
+def test_compute_edge_vec():
+    pos = torch.rand(10, 3)
+    edge_index = torch.randint(0, 10, (2, 20))
+    lframes = rand_matrix(10)
+    parity_mask = torch.randint(0, 2, (10,), dtype=torch.bool)
+    lframes[parity_mask, :, 0] *= -1
+    lframes = LFrames(matrices=lframes)
+
+    # edge_vec without lframes:
+    edge_vec = compute_edge_vec(pos, edge_index)
+
+    # compare against manual computation:
+    edge_vec_ = pos[edge_index[0]] - pos[edge_index[1]]
+
+    assert torch.allclose(edge_vec, edge_vec_)
+
+    # with tuple pos:
+    subset_index = torch.randint(0, 10, (5,))
+    pos_tuple = (pos, pos[subset_index])
+    edge_index_ = torch.zeros((2, 5), dtype=torch.long)
+    edge_index_[0] = edge_index_[0][:5]
+    edge_index_[1] = torch.randperm(5)
+
+    edge_vec = compute_edge_vec(pos_tuple, edge_index_)
+
+    # compare against manual computation:
+    edge_vec_ = pos_tuple[0][edge_index_[0]] - pos_tuple[1][edge_index_[1]]
+
+    assert torch.allclose(edge_vec, edge_vec_)
+
+    # with lframes:
+    edge_vec = compute_edge_vec(pos, edge_index, lframes)
+
+    # compare against manual computation:
+    edge_vec_ = pos[edge_index[0]] - pos[edge_index[1]]
+    edge_vec_ = torch.einsum("ik,ijk->ij", edge_vec_, lframes.matrices[edge_index[1]])
+    assert torch.allclose(edge_vec, edge_vec_)
+
+
 def test_radial():
     pos = torch.rand(10, 3)
     edge_index = torch.randint(0, 10, (2, 20))

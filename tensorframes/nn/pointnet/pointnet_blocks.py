@@ -212,76 +212,96 @@ class GlobalSAModule(torch.nn.Module):
         return x, pos[idx], batch[idx], lframes_dst
 
 
-def lframes_knn_interpolate(
-    x: torch.Tensor,
-    pos_x: torch.Tensor,
-    pos_y: torch.Tensor,
-    lframes_x: LFrames,
-    lframes_y: LFrames,
-    reps: Union[TensorReps, Irreps],
-    batch_x: OptTensor = None,
-    batch_y: OptTensor = None,
-    k: int = 3,
-    num_workers: int = 1,
-):
-    """The k-NN interpolation from the `"PointNet++: Deep Hierarchical
-    Feature Learning on Point Sets in a Metric Space"
-    <https://arxiv.org/abs/1706.02413>`_ paper (modified to handle local frames).
-    For each point :math:`y` with position :math:`\\mathbf{p}(y)`, its
-    interpolated features :math:`\\mathbf{f}(y)` are given by
+class LFramesKNNInterpolate(torch.nn.Module):
+    """K-NN interpolation module for the Feature Propagation (FP) module in the PointNet
+    architecture."""
 
-    .. math::
-        \\mathbf{f}(y) = \frac{\\sum_{i=1}^k w(x_i) \\mathbf{f}(x_i)}{\\sum_{i=1}^k
-        w(x_i)} \textrm{, where } w(x_i) = \frac{1}{d(\\mathbf{p}(y),
-        \\mathbf{p}(x_i))^2}
+    def __init__(self, reps: Union[TensorReps, Irreps], k: int = 3, num_workers: int = 1):
+        """Initializes the PointNet block.
 
-    and :math:`\\{ x_1, \\ldots, x_k \\}` denoting the :math:`k` nearest points
-    to :math:`y`.
+        Args:
+            reps (Union[TensorReps, Irreps]): The representation class instance.
+            k (int, optional): The number of nearest neighbors to consider. Defaults to 3.
+            num_workers (int, optional): The number of workers to use for data loading. Defaults to 1.
+        """
+        super().__init__()
+        self.reps = reps
+        self.k = k
+        self.num_workers = num_workers
+        self.transform = reps.get_transform_class()
 
-    Args:
-        x (torch.Tensor): Node feature matrix
-            :math:`\\mathbf{X} \\in \\mathbb{R}^{N \times F}`.
-        pos_x (torch.Tensor): Node position matrix
-            :math:`\\in \\mathbb{R}^{N \times d}`.
-        pos_y (torch.Tensor): Upsampled node position matrix
-            :math:`\\in \\mathbb{R}^{M \times d}`.
-        lframes_x (LFrames): Local frames of the input nodes.
-        lframes_y (LFrames): Local frames of the upsampled nodes.
-        batch_x (torch.Tensor, optional): Batch vector
-            :math:`\\mathbf{b_x} \\in {\\{ 0, \\ldots, B-1\\}}^N`, which assigns
-            each node from :math:`\\mathbf{X}` to a specific example.
-            (default: `None`)
-        batch_y (torch.Tensor, optional): Batch vector
-            :math:`\\mathbf{b_y} \\in {\\{ 0, \\ldots, B-1\\}}^N`, which assigns
-            each node from :math:`\\mathbf{Y}` to a specific example.
-            (default: `None`)
-        k (int, optional): Number of neighbors. (default: `3`)
-        num_workers (int, optional): Number of workers to use for computation.
-            Has no effect in case `batch_x` or `batch_y` is not
-            `None`, or the input lies on the GPU. (default: `1`)
-    """
+    def forward(
+        self,
+        x: torch.Tensor,
+        pos_x: torch.Tensor,
+        pos_y: torch.Tensor,
+        lframes_x: LFrames,
+        lframes_y: LFrames,
+        batch_x: OptTensor = None,
+        batch_y: OptTensor = None,
+    ):
+        """The k-NN interpolation from the `"PointNet++: Deep Hierarchical
+        Feature Learning on Point Sets in a Metric Space"
+        <https://arxiv.org/abs/1706.02413>`_ paper (modified to handle local frames).
+        For each point :math:`y` with position :math:`\\mathbf{p}(y)`, its
+        interpolated features :math:`\\mathbf{f}(y)` are given by
 
-    with torch.no_grad():
-        assign_index = knn(
-            pos_x, pos_y, k, batch_x=batch_x, batch_y=batch_y, num_workers=num_workers
-        )
-        y_idx, x_idx = (
-            assign_index[0],
-            assign_index[1],
-        )  # y index are the receivers, x index are the senders
-        diff = pos_x[x_idx] - pos_y[y_idx]
-        squared_distance = (diff * diff).sum(dim=-1, keepdim=True)
-        weights = 1.0 / torch.clamp(squared_distance, min=1e-6)
+        .. math::
+            \\mathbf{f}(y) = \frac{\\sum_{i=1}^k w(x_i) \\mathbf{f}(x_i)}{\\sum_{i=1}^k
+            w(x_i)} \textrm{, where } w(x_i) = \frac{1}{d(\\mathbf{p}(y),
+            \\mathbf{p}(x_i))^2}
 
-    lframes_x = lframes_x.index_select(x_idx)
-    lframes_y = lframes_y.index_select(y_idx)
-    U = ChangeOfLFrames(lframes_start=lframes_x, lframes_end=lframes_y)
-    transform = reps.get_transform_class()
-    x_in_lframe_y = transform(x[x_idx], U)
-    y = scatter(x_in_lframe_y * weights, y_idx, 0, pos_y.size(0), reduce="sum")
-    y = y / scatter(weights, y_idx, 0, pos_y.size(0), reduce="sum")
+        and :math:`\\{ x_1, \\ldots, x_k \\}` denoting the :math:`k` nearest points
+        to :math:`y`.
 
-    return y
+        Args:
+            x (torch.Tensor): Node feature matrix
+                :math:`\\mathbf{X} \\in \\mathbb{R}^{N \times F}`.
+            pos_x (torch.Tensor): Node position matrix
+                :math:`\\in \\mathbb{R}^{N \times d}`.
+            pos_y (torch.Tensor): Upsampled node position matrix
+                :math:`\\in \\mathbb{R}^{M \times d}`.
+            lframes_x (LFrames): Local frames of the input nodes.
+            lframes_y (LFrames): Local frames of the upsampled nodes.
+            batch_x (torch.Tensor, optional): Batch vector
+                :math:`\\mathbf{b_x} \\in {\\{ 0, \\ldots, B-1\\}}^N`, which assigns
+                each node from :math:`\\mathbf{X}` to a specific example.
+                (default: `None`)
+            batch_y (torch.Tensor, optional): Batch vector
+                :math:`\\mathbf{b_y} \\in {\\{ 0, \\ldots, B-1\\}}^N`, which assigns
+                each node from :math:`\\mathbf{Y}` to a specific example.
+                (default: `None`)
+            k (int, optional): Number of neighbors. (default: `3`)
+            num_workers (int, optional): Number of workers to use for computation.
+                Has no effect in case `batch_x` or `batch_y` is not
+                `None`, or the input lies on the GPU. (default: `1`)
+        """
+
+        with torch.no_grad():
+            assign_index = knn(
+                pos_x,
+                pos_y,
+                self.k,
+                batch_x=batch_x,
+                batch_y=batch_y,
+                num_workers=self.num_workers,
+            )
+            y_idx, x_idx = (
+                assign_index[0],
+                assign_index[1],
+            )  # y index are the receivers, x index are the senders
+            diff = pos_x[x_idx] - pos_y[y_idx]
+            squared_distance = (diff * diff).sum(dim=-1, keepdim=True)
+            weights = 1.0 / torch.clamp(squared_distance, min=1e-6)
+
+        lframes_x = lframes_x.index_select(x_idx)
+        lframes_y = lframes_y.index_select(y_idx)
+        U = ChangeOfLFrames(lframes_start=lframes_x, lframes_end=lframes_y)
+        x_in_lframe_y = self.transform(x[x_idx], U)
+        y = scatter(x_in_lframe_y * weights, y_idx, 0, pos_y.size(0), reduce="sum")
+        y = y / scatter(weights, y_idx, 0, pos_y.size(0), reduce="sum")
+
+        return y
 
 
 class FPModule(torch.nn.Module):
@@ -316,6 +336,7 @@ class FPModule(torch.nn.Module):
         self.reps = reps
         self.out_dim = mlp.out_dim
         self.lframes_updater = lframes_updater
+        self.lframes_knn_interpolate = LFramesKNNInterpolate(reps=reps, k=k)
 
     def forward(
         self,
@@ -346,8 +367,8 @@ class FPModule(torch.nn.Module):
             torch.Tensor: Output batch tensor.
             Lframes: Output local frames object.
         """
-        x = lframes_knn_interpolate(
-            x, pos, pos_skip, lframes, lframes_skip, self.reps, batch, batch_skip, k=self.k
+        x = self.lframes_knn_interpolate(
+            x, pos, pos_skip, lframes, lframes_skip, batch, batch_skip
         )
         if x_skip is not None:
             # this step is compatible with local frames (since the skip comes from the same frame)

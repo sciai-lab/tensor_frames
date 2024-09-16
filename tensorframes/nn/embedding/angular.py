@@ -1,9 +1,10 @@
-from typing import Tuple, Union
+from typing import Union
 
 import e3nn.o3 as o3
 import numpy as np
 import torch
 from torch import Tensor
+from torch_geometric.typing import PairTensor
 
 from tensorframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import (
@@ -37,7 +38,7 @@ class AngularEmbedding(torch.nn.Module):
 
     def forward(
         self,
-        pos: Union[Tensor, Tuple, None] = None,
+        pos: Union[Tensor, PairTensor, None] = None,
         edge_index: Union[Tensor, None] = None,
         lframes: Union[LFrames, None] = None,
         edge_vec: Union[Tensor, None] = None,
@@ -47,7 +48,7 @@ class AngularEmbedding(torch.nn.Module):
         Either pos, edge_index, and lframes  or edge_vec must be provided.
 
         Args:
-            pos (Union[Tensor, Tuple], optional): The position tensor or tuple.
+            pos (Union[Tensor, PairTensor], optional): The position tensor or tuple.
             edge_index (Tensor, optional): The edge index tensor.
             lframes (LFrames, optional): The LFrames object. Defaults to None.
             edge_vec (Tensor, optional): The edge vector tensor. Defaults to None.

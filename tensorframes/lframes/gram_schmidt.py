@@ -5,6 +5,21 @@ import torch
 from torch import Tensor
 
 
+def symmetric_non_small_noise_like(x: Tensor, eps: float = 1e-6, scale: float = 1) -> Tensor:
+    """Generates a tensor of random noise with symmetric values that are not too small.
+
+    Args:
+        shape (torch.Size): The shape of the output tensor.
+        eps (float, optional): The minimum value of the noise. Defaults to 1e-6.
+        max (float, optional): The maximum value of the noise. Defaults to 1.
+
+    Returns:
+        Tensor: A tensor of random noise with the specified properties.
+    """
+    random_sign = torch.sign(torch.rand_like(x) - 0.5)
+    return (torch.randn_like(x).abs() * scale + 2 * eps) * random_sign
+
+
 def gram_schmidt(
     x_axis: Tensor,
     y_axis: Tensor,
@@ -39,7 +54,11 @@ def gram_schmidt(
         warnings.warn("x_axis has zero length")
         # print("x_axis has zero length", x_zero_mask.sum())
         if exceptional_choice == "random":
-            x_axis = torch.where(x_zero_mask[:, None], x_axis + torch.rand_like(x_axis), x_axis)
+            x_axis = torch.where(
+                x_zero_mask[:, None],
+                x_axis + symmetric_non_small_noise_like(x_axis, eps=eps),
+                x_axis,
+            )
             x_length = torch.linalg.norm(x_axis, dim=-1, keepdim=True)
         elif exceptional_choice == "zero":
             x_axis = torch.where(x_zero_mask[:, None], torch.zeros_like(x_axis), x_axis)
@@ -62,7 +81,11 @@ def gram_schmidt(
     if torch.any(y_zero_mask):
         # print("y_axis has zero length", y_zero_mask.sum())
         if exceptional_choice == "random":
-            y_axis = torch.where(y_zero_mask[:, None], y_axis + torch.rand_like(y_axis), y_axis)
+            y_axis = torch.where(
+                y_zero_mask[:, None],
+                y_axis + symmetric_non_small_noise_like(x_axis, eps=eps),
+                y_axis,
+            )
             y_axis = torch.where(
                 y_zero_mask[:, None],
                 y_axis - torch.einsum("ij,ij->i", y_axis, x_axis)[:, None] * x_axis,
