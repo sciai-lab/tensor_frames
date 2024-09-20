@@ -4,7 +4,10 @@ import torch
 
 from tensorframes.lframes import LFrames
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
-from tensorframes.lframes.updating_lframes import QuaternionsUpdateLFrames
+from tensorframes.lframes.updating_lframes import (
+    GramSchmidtUpdateLFrames,
+    QuaternionsUpdateLFrames,
+)
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.nn.embedding.axial import AxisWiseEmbeddingFromRadial
 from tensorframes.nn.embedding.radial import GaussianEmbedding
@@ -38,6 +41,7 @@ class PointNetEncoder(torch.nn.Module):
         list_conv_kwargs: Union[dict, list[dict]] | None = None,
         list_sam_kwargs: Union[dict, list[dict]] | None = None,
         list_lframes_update_kwargs: Union[dict, list[dict]] | None = None,
+        lframes_update_type: str = "quaternions",
         first_concats_pos_to_features: bool = False,
         first_concatenate_edge_vec: bool = False,
         use_dynamic_sam: bool = False,
@@ -65,6 +69,7 @@ class PointNetEncoder(torch.nn.Module):
             list_conv_kwargs (Union[dict, list[dict]] | None, optional): Convolutional layer keyword arguments. Defaults to None.
             list_sam_kwargs (Union[dict, list[dict]] | None, optional): Point sampler keyword arguments. Defaults to None.
             list_lframes_update_kwargs (Union[dict, list[dict]] | None, optional): Local frames update keyword arguments. Defaults to None.
+            lframes_update_type (str, optional): Type of local frames update. Defaults to "quaternions".
             first_concats_pos_to_features (bool, optional): Whether the first layer concatenates position to features. Defaults to False.
             first_concatenate_edge_vec (bool, optional): Whether the first layer concatenates edge vectors. Defaults to False.
             use_dynamic_sam (bool, optional): Whether to use dynamic sampling. Defaults to False.
@@ -159,10 +164,20 @@ class PointNetEncoder(torch.nn.Module):
                 if lframes_updater_kwargs is None:
                     lframes_updater_i = None
                 else:
-                    lframes_updater_i = QuaternionsUpdateLFrames(
-                        in_reps=list_in_reps[i],
-                        **list_lframes_update_kwargs[i],
-                    )
+                    if lframes_update_type == "quaternions":
+                        lframes_updater_i = QuaternionsUpdateLFrames(
+                            in_reps=list_in_reps[i],
+                            **lframes_updater_kwargs,
+                        )
+                    elif lframes_update_type == "gram_schmidt":
+                        lframes_updater_i = GramSchmidtUpdateLFrames(
+                            in_reps=list_in_reps[i],
+                            **lframes_updater_kwargs,
+                        )
+                    else:
+                        raise ValueError(
+                            f"lframes_update_type {lframes_update_type} not supported"
+                        )
                 conv_kwargs = list_conv_kwargs[i]
                 sam_kwargs = list_sam_kwargs[i]
 
@@ -320,6 +335,7 @@ class PointNetDecoder(torch.nn.Module):
         list_k: Union[int, list[int]] = 3,
         list_mlp_kwargs: Union[dict, list[dict]] | None = None,
         list_lframes_update_kwargs: Union[dict, list[dict]] | None = None,
+        lframes_update_type: str = "quaternions",
     ) -> None:
         """Initializes the PointNetDecoder module.
 
@@ -331,6 +347,7 @@ class PointNetDecoder(torch.nn.Module):
             list_k (Union[int, list[int]], optional): The number of nearest neighbors to consider for each layer of the decoder. Defaults to 3.
             list_mlp_kwargs (Union[dict, list[dict]] | None, optional): Additional keyword arguments for the MLP module in each layer of the decoder. Defaults to None.
             list_lframes_update_kwargs (Union[dict, list[dict]] | None, optional): Additional keyword arguments for the UpdateLFramesModule in each layer of the decoder. Defaults to None.
+            lframes_update_type (str, optional): The type of local frames update. Defaults to "quaternions".
 
         Raises:
             AssertionError: If the encoder module has a global sam module when used with the decoder.
@@ -376,10 +393,18 @@ class PointNetDecoder(torch.nn.Module):
             if list_lframes_update_kwargs[i] is None:
                 lframes_updater = None
             else:
-                lframes_updater = QuaternionsUpdateLFrames(
-                    in_reps=in_reps + skip_reps,
-                    **list_lframes_update_kwargs[i],
-                )
+                if lframes_update_type == "quaternions":
+                    lframes_updater = QuaternionsUpdateLFrames(
+                        in_reps=in_reps + skip_reps,
+                        **list_lframes_update_kwargs[i],
+                    )
+                elif lframes_update_type == "gram_schmidt":
+                    lframes_updater = GramSchmidtUpdateLFrames(
+                        in_reps=in_reps + skip_reps,
+                        **list_lframes_update_kwargs[i],
+                    )
+                else:
+                    raise ValueError(f"lframes_update_type {lframes_update_type} not supported")
             self.fp_modules.append(
                 FPModule(
                     mlp=mlp,
