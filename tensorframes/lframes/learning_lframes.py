@@ -49,7 +49,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
             concat_receiver (bool, optional): Whether to concatenate the receiver input to the mlp input. Defaults to True.
             exceptional_choice (str, optional): The exceptional choice, which is used by gram schmidt. Defaults to "random".
             anchor_z_axis (bool, optional): Whether to anchor the z-axis. Defaults to False.
-            fix_gravitational_axis (bool, optional): Whether to fix the graviational axis. Defaults to False.
+            fix_gravitational_axis (bool, optional): Whether to fix the gravitational axis. Defaults to False.
             gravitational_axis_index (int, optional): The index of the gravitational axis. Defaults to 1.
             envelope (Union[torch.nn.Module, None], optional): The envelope module. Defaults to EnvelopePoly(5).
             **mlp_kwargs (dict): Additional keyword arguments for the MLP.
@@ -75,9 +75,9 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
             self.num_pred_vecs -= 1
 
         if fix_gravitational_axis:
-            graviational_axis = torch.zeros(3)
-            graviational_axis[gravitational_axis_index] = 1.0
-            self.register_buffer("graviational_axis", graviational_axis)
+            gravitational_axis = torch.zeros(3)
+            gravitational_axis[gravitational_axis_index] = 1.0
+            self.register_buffer("gravitational_axis", gravitational_axis)
             self.num_pred_vecs -= 1
 
             # find the even permutation where index_order[gravitational_axis_index] is 0:
@@ -87,7 +87,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
                 if current_index_order[gravitational_axis_index] == 0:
                     self.index_order = current_index_order.tolist()
         else:
-            self.graviational_axis = None
+            self.gravitational_axis = None
             self.index_order = None
 
         self.hidden_channels.append(self.num_pred_vecs)
@@ -156,12 +156,12 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
             vecs = vecs.reshape(-1, self.num_pred_vecs, 3)
 
         if self.predict_o3:
-            if self.graviational_axis is None:
+            if self.gravitational_axis is None:
                 vec1 = vecs[:, 0, :]
                 vec2 = vecs[:, 1, :]
                 vec3 = vecs[:, 2, :]
             else:
-                vec1 = self.graviational_axis[None, :].repeat(vecs.shape[0], 1)
+                vec1 = self.gravitational_axis[None, :].repeat(vecs.shape[0], 1)
                 vec2 = vecs[:, 0, :]
                 vec3 = vecs[:, 1, :]
 
@@ -172,11 +172,11 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
                 exceptional_choice=self.exceptional_choice,
             )
         else:
-            if self.graviational_axis is None:
+            if self.gravitational_axis is None:
                 vec1 = vecs[:, 0, :]
                 vec2 = vecs[:, 1, :]
             else:
-                vec1 = self.graviational_axis[None, :].repeat(vecs.shape[0], 1)
+                vec1 = self.gravitational_axis[None, :].repeat(vecs.shape[0], 1)
                 vec2 = vecs[:, 0, :]
 
             local_frames = gram_schmidt(vec1, vec2, exceptional_choice=self.exceptional_choice)

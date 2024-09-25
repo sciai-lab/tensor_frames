@@ -503,9 +503,8 @@ class PointNet(torch.nn.Module):
             x, lframes = self.estimate_lframes_module(x=x, pos=pos, batch=batch)
         else:
             lframes = self.estimate_lframes_module(pos=pos, batch=batch)
-
-        if self.from_global_to_local_frame is not None:
-            x = self.from_global_to_local_frame(x, lframes=lframes)
+            if self.from_global_to_local_frame is not None:
+                x = self.from_global_to_local_frame(x, lframes=lframes)
 
         x, pos, batch, lframes, enc_cached_layer_outputs = self.pointnetpp_encoder(
             x, pos, batch, lframes, epoch=epoch
