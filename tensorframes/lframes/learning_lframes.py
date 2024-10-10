@@ -35,6 +35,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         fix_gravitational_axis: bool = False,
         gravitational_axis_index: int = 1,
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
+        use_double_cross_product: bool = False,
         **mlp_kwargs: dict,
     ) -> None:
         """Initialize the LearnedGramSchmidtLFrames model.
@@ -52,6 +53,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
             fix_gravitational_axis (bool, optional): Whether to fix the gravitational axis. Defaults to False.
             gravitational_axis_index (int, optional): The index of the gravitational axis. Defaults to 1.
             envelope (Union[torch.nn.Module, None], optional): The envelope module. Defaults to EnvelopePoly(5).
+            use_double_cross_product (bool, optional): Whether to use the double cross product method to compute the third vector. Defaults to False.
             **mlp_kwargs (dict): Additional keyword arguments for the MLP.
         """
         super().__init__()
@@ -95,6 +97,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         self.cutoff = cutoff
         self.concat_receiver = concat_receiver
         self.exceptional_choice = exceptional_choice
+        self.use_double_cross_product = use_double_cross_product
 
         if self.cutoff is not None:
             self.envelope = envelope
@@ -170,6 +173,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
                 vec2,
                 vec3,
                 exceptional_choice=self.exceptional_choice,
+                use_double_cross_product=self.use_double_cross_product,
             )
         else:
             if self.gravitational_axis is None:
@@ -179,7 +183,12 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
                 vec1 = self.gravitational_axis[None, :].repeat(vecs.shape[0], 1)
                 vec2 = vecs[:, 0, :]
 
-            local_frames = gram_schmidt(vec1, vec2, exceptional_choice=self.exceptional_choice)
+            local_frames = gram_schmidt(
+                vec1,
+                vec2,
+                exceptional_choice=self.exceptional_choice,
+                use_double_cross_product=self.use_double_cross_product,
+            )
 
         # permute the axes to be at the correct index position:
         if self.index_order is not None:

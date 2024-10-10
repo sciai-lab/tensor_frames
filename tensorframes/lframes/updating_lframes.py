@@ -21,6 +21,8 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
         hidden_channels: list,
         fix_gravitational_axis: bool = False,
         gravitational_axis_index: int = 1,
+        exceptional_choice: str = "random",
+        use_double_cross_product: bool = False,
         **mlp_kwargs,
     ):
         """Initialize the GramSchmidtUpdateLFrames module.
@@ -30,6 +32,8 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
             hidden_channels (list): List of hidden channel sizes for the MLP.
             fix_gravitational_axis (bool, optional): Whether to fix the gravitational axis. Defaults to False.
             gravitational_axis_index (int, optional): Index of the gravitational axis. Defaults to 1.
+            exceptional_choice (str, optional): Choice of exceptional index. Defaults to "random".
+            use_double_cross_product (bool, optional): Whether to use the double cross product to predict the vectors. Defaults to False.
             **mlp_kwargs: Additional keyword arguments for the MLPWrapped module.
         """
         super().__init__()
@@ -58,6 +62,8 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
         )
 
         self.coeffs_transform = self.in_reps.get_transform_class()
+        self.exceptional_choice = exceptional_choice
+        self.use_double_cross_product = use_double_cross_product
 
     def forward(
         self, x: torch.Tensor, lframes: LFrames, batch: torch.Tensor
@@ -80,7 +86,12 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
             vec_1 = self.gravitational_axis[None, :].repeat(out.shape[0], 1)
             vec_2 = out
 
-        rot_matr = gram_schmidt(vec_1, vec_2)
+        rot_matr = gram_schmidt(
+            vec_1,
+            vec_2,
+            exceptional_choice=self.exceptional_choice,
+            use_double_cross_product=self.use_double_cross_product,
+        )
         if self.index_order is not None:
             rot_matr = rot_matr[:, self.index_order]
         new_lframes = LFrames(torch.einsum("ijk, ikn -> ijn", rot_matr, lframes.matrices))

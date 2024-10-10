@@ -27,6 +27,7 @@ def gram_schmidt(
     eps: float = 1e-6,
     normalized: bool = True,
     exceptional_choice: str = "random",
+    use_double_cross_product: bool = False,
 ) -> Tensor:
     """Applies the Gram-Schmidt process to a set of input vectors to orthogonalize them.
 
@@ -39,6 +40,7 @@ def gram_schmidt(
         exceptional_choice (str, optional): The method to handle exceptional cases where the input vectors have zero length.
             Can be either "random" to use a random vector instead, or "zero" to set the vectors to zero.
             Defaults to "random".
+        use_double_cross_product (bool, optional): Whether to use the double cross product method to compute the third vector. Defaults to False.
 
     Returns:
         Tensor: A tensor containing the orthogonalized vectors the tensor has shape (N, 3, 3).
@@ -68,11 +70,16 @@ def gram_schmidt(
 
     if normalized:
         x_axis = x_axis / torch.clamp(x_length, eps)
-        y_axis = y_axis - torch.einsum("ij,ij->i", y_axis, x_axis)[:, None] * x_axis
+
+    if use_double_cross_product:
+        y_axis = torch.linalg.cross(x_axis, y_axis, dim=-1)
     else:
-        y_axis = y_axis - torch.einsum("ij,ij->i", y_axis, x_axis)[:, None] * x_axis / torch.clamp(
-            torch.square(x_length), eps
-        )
+        if normalized:
+            y_axis = y_axis - torch.einsum("ij,ij->i", y_axis, x_axis)[:, None] * x_axis
+        else:
+            y_axis = y_axis - torch.einsum("ij,ij->i", y_axis, x_axis)[
+                :, None
+            ] * x_axis / torch.clamp(torch.square(x_length), eps)
 
     # handle the case where y_axis is zero (this can happen if x and y are parallel)
     y_length = torch.linalg.norm(y_axis, dim=-1, keepdim=True)
