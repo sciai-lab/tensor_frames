@@ -8,6 +8,8 @@ from tensorframes.reps.reps import Reps
 
 transform_dict = {}
 
+MLP_REPS_COUNT = 0
+
 
 class MLPReps(Reps):
     """The MLPReps class.
@@ -15,17 +17,23 @@ class MLPReps(Reps):
     Represents a representation using a Multi-Layer Perceptron (MLP).
     """
 
-    def __init__(self, dim: int, reps_id: Union[str, int], spatial_dim: int = 3) -> None:
+    def __init__(self, dim: int, reps_id: Union[str, int] = "count", spatial_dim: int = 3) -> None:
         """Initialize the MLPReps object.
 
         Args:
             dim (int): The dimension of the representations.
-            reps_id (Union[str, int]): The ID of the representations. (to use the same representation in different places)
+            reps_id (Union[str, int], optional): The ID of the representations. (to use the same representation in different places). Defaults to "count".
             spatial_dim (int, optional): The spatial dimension. Defaults to 3.
         """
         super().__init__()
         self._dim = dim
         self._reps_id = str(reps_id)
+        assert not self._reps_id.startswith("_"), "The reps_id cannot start with an underscore."
+        if self._reps_id == "count":
+            global MLP_REPS_COUNT
+            self._reps_id = "_" + str(MLP_REPS_COUNT)
+            MLP_REPS_COUNT += 1
+
         self.spatial_dim = spatial_dim
 
     def __repr__(self) -> str:
@@ -44,6 +52,17 @@ class MLPReps(Reps):
             int: The dimension of the object.
         """
         return self._dim
+
+    def __add__(self, mlpreps) -> "MLPReps":
+        """Adds two `MLPReps` objects together. Does not work with ids.
+
+        Args:
+            MLPReps (MLPReps): The `MLPReps` object to add.
+
+        Returns:
+            MLPReps: The sum of the two `MLPReps` objects.
+        """
+        return MLPReps(self.dim + mlpreps.dim, spatial_dim=self.spatial_dim)
 
     def get_transform_class(self) -> "MLPRepsTransform":
         """Returns an instance of MLPRepsTransform associated with the current MLPReps object.

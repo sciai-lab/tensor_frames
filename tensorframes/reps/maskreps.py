@@ -8,6 +8,8 @@ from tensorframes.reps.reps import Reps
 
 transform_dict = {}
 
+MASK_REPS_COUNT = 0
+
 
 class MaskReps(Reps):
     """The MaskReps class.
@@ -16,17 +18,23 @@ class MaskReps(Reps):
     vector is then multiplied element-wise with the input tensor.
     """
 
-    def __init__(self, dim: int, reps_id: Union[str, int], spatial_dim: int = 3) -> None:
+    def __init__(self, dim: int, reps_id: Union[str, int] = "count", spatial_dim: int = 3) -> None:
         """Initialize the MaskReps object.
 
         Args:
             dim (int): The dimension of the representations.
-            reps_id (Union[str, int]): The ID of the representations. (to use the same representation in different places)
+            reps_id (Union[str, int], optional): The ID of the representations. (to use the same representation in different places). Defaults to "count".
             spatial_dim (int, optional): The spatial dimension. Defaults to 3.
         """
         super().__init__()
         self._dim = dim
         self._reps_id = str(reps_id)
+        assert not self._reps_id.startswith("_"), "The reps_id cannot start with an underscore."
+        if self._reps_id == "count":
+            global MASK_REPS_COUNT
+            self._reps_id = "_" + str(MASK_REPS_COUNT)
+            MASK_REPS_COUNT += 1
+
         self.spatial_dim = spatial_dim
 
     def __repr__(self) -> str:
@@ -45,6 +53,17 @@ class MaskReps(Reps):
             int: The dimension of the object.
         """
         return self._dim
+
+    def __add__(self, maskreps) -> "MaskReps":
+        """Adds two `MaskReps` objects together. Does not work with ids.
+
+        Args:
+            MaskReps (MaskReps): The `MaskReps` object to add.
+
+        Returns:
+            MaskReps: The sum of the two `MaskReps` objects.
+        """
+        return MaskReps(self.dim + maskreps.dim, spatial_dim=self.spatial_dim)
 
     def get_transform_class(self) -> "MaskRepsTransform":
         """Returns an instance of MaskRepsTransform associated with the current MaskReps object.

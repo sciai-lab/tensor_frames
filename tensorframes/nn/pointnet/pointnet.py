@@ -380,7 +380,9 @@ class PointNetDecoder(torch.nn.Module):
 
         # init module list
         self.fp_modules = torch.nn.ModuleList()
-        assert list_in_reps[0] == encoder_module.list_reps[-1], "in_reps must match encoder out"
+        assert (
+            list_in_reps[0].dim == encoder_module.list_reps[-1].dim
+        ), f"dimension of in_reps ({list_in_reps[0]}) must match encoder out ({encoder_module.list_reps[-1]})"
         for i, hidden_channels in enumerate(list_hidden_channels):
             in_reps = list_in_reps[i]
             skip_reps = encoder_module.list_reps[-i - 2]
