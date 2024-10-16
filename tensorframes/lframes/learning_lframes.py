@@ -230,7 +230,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         if self.even_scalar_edge_dim > 0 and edge_attr is not None:
             inp = torch.cat([inp, edge_attr], dim=-1)
 
-        mlp_out = self.mlp(x=inp, batch=batch_j.flatten())
+        mlp_out = self.mlp(x=inp, batch=None if batch_j is None else batch_j.flatten())
 
         relative_vec = pos_j - pos_i
         relative_norm = torch.clamp(torch.linalg.norm(relative_vec, dim=-1, keepdim=True), 1e-6)
