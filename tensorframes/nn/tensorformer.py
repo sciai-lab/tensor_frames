@@ -39,6 +39,7 @@ class TensorFormer(TFMessagePassing):
         softmax: bool = False,
         attention_weight_dropout: float = 0.0,
         bias: bool = True,
+        layer_norm_mode: str = "graph",
     ) -> None:
         """Initialize the TensorFormer model.
 
@@ -60,6 +61,7 @@ class TensorFormer(TFMessagePassing):
             softmax (bool, optional): Whether to apply softmax to attention weights if not uses SiLU. Defaults to False.
             attention_weight_dropout (float, optional): The dropout rate for attention weights. Defaults to 0.0.
             bias (bool, optional): Whether to include bias terms. Defaults to True.
+            layer_norm_mode (str, optional): The mode for layer normalization. Defaults to "graph".
         """
 
         super().__init__(params_dict={"x": {"type": "local", "rep": tensor_reps}})
@@ -79,7 +81,7 @@ class TensorFormer(TFMessagePassing):
             bias=bias,
         )
 
-        self.scalar_norm = LayerNorm(hidden_scalar_dim * num_heads)
+        self.scalar_norm = LayerNorm(hidden_scalar_dim * num_heads, mode=layer_norm_mode)
 
         if scalar_activation_function is None:
             self.act_scalar = torch.nn.LeakyReLU()
@@ -115,8 +117,8 @@ class TensorFormer(TFMessagePassing):
             activation_layer=hidden_activation,
         )
 
-        self.layer_norm_1 = LayerNorm(self.dim)
-        self.layer_norm_2 = LayerNorm(self.dim)
+        self.layer_norm_1 = LayerNorm(self.dim, mode=layer_norm_mode)
+        self.layer_norm_2 = LayerNorm(self.dim, mode=layer_norm_mode)
 
         self.dropout_attention = torch.nn.Dropout(dropout_attention)
         self.dropout_mlp = torch.nn.Dropout(dropout_mlp)
