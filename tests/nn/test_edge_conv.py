@@ -6,7 +6,8 @@ from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
 
 
-def test_edge_conv_layer():
+def test_edge_conv():
+    """Test the EdgeConv layer."""
     # Test the EdgeConv layer
     # First test the EdgeConv layer with tensor_reps
 
