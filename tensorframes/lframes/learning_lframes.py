@@ -266,7 +266,6 @@ class WrappedLearnedLFrames(Module):
         max_radius: Union[float, None] = None,
         edge_attr_tensor_reps: Union[TensorReps, Irreps, None] = None,
         max_num_neighbors: int = 64,
-        flatten: bool = True,
         **kwargs,
     ) -> None:
         """Initializes the WrappedLearnedLocalFramesModule.
@@ -278,7 +277,6 @@ class WrappedLearnedLFrames(Module):
             radial_module (torch.nn.Module, optional): The radial module for the radial embedding. Defaults to None.
             edge_attr_tensor_reps (Union[TensorReps, Irreps], optional): The edge attribute tensor representations. Defaults to None.
             max_num_neighbors (int, optional): The maximum number of neighbors for the radius-graph neighbor search. Defaults to 64.
-            flatten (bool, optional): Whether to flatten the output. Defaults to True.
             **kwargs: Additional keyword arguments of the LearnedGramSchmidtLFrames module.
         """
         super().__init__()
@@ -299,7 +297,6 @@ class WrappedLearnedLFrames(Module):
         self.radial_module = radial_module
         self.max_radius = max_radius
         self.max_num_neighbors = max_num_neighbors
-        self.flatten = flatten
         if max_radius is not None:
             # use max radius also as the cutoff.
             kwargs["cutoff"] = max_radius
