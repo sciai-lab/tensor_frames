@@ -121,7 +121,13 @@ def gram_schmidt(
                 torch.sign(z_dot),
             )
             z_axis = z_tmp * z_sign[:, None]
+            if use_double_cross_product:
+                # to ensure the O(3)-equivariance of lframes
+                y_axis = y_axis * z_sign[:, None]
         else:
+            assert (
+                not use_double_cross_product
+            ), "use_double_cross_product is not supported with normalized=False"
             z_axis = (
                 z_axis
                 - torch.einsum("ij,ij->i", z_axis, x_axis)[:, None]
