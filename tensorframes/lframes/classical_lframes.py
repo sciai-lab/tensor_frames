@@ -5,7 +5,7 @@ from e3nn.o3 import rand_matrix
 from torch import Tensor
 from torch_geometric.nn import knn
 
-from tensorframes.lframes.gram_schmidt import gram_schmidt_old
+from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 
 
@@ -70,7 +70,7 @@ class ThreeNNLFrames(LFramesPredictionModule):
         y_axis = pos[col[:, 1]] - pos[row]
         z_axis = pos[col[:, 2]] - pos[row]
 
-        matrices = gram_schmidt_old(x_axis, y_axis, z_axis)
+        matrices = gram_schmidt(x_axis, y_axis, z_axis)
 
         return LFrames(matrices)
 

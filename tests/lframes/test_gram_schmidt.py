@@ -7,7 +7,7 @@ from tensorframes.lframes.gram_schmidt import (
 )
 
 
-def test_gram_schmidt():
+def test_gram_schmidt_old():
     """Test function for the gram_schmidt function.
 
     This function creates a random set of vectors and tests the gram_schmidt function for both
@@ -231,6 +231,6 @@ def test_double_cross_orthogonalize():
 
 
 if __name__ == "__main__":
-    test_gram_schmidt()
+    test_gram_schmidt_old()
     test_gram_schmidt_new()
     test_double_cross_orthogonalize()
