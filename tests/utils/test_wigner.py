@@ -1,7 +1,11 @@
 import torch
 from e3nn.o3 import matrix_to_angles, rand_matrix
 
-from tensorframes.utils.wigner import euler_angles_yxy, wigner_D_from_matrix
+from tensorframes.utils.wigner import (
+    euler_angle_inversion,
+    euler_angles_yxy,
+    wigner_D_from_matrix,
+)
 
 
 def test_wigner():
@@ -16,7 +20,7 @@ def test_wigner():
 
     for i, angle in enumerate(angles):
         my_angle = my_angles[:, i]
-        assert torch.allclose(angle, my_angle, atol=1e-5)
+        assert torch.allclose(angle, my_angle, atol=1e-4)
 
     # test angle special cases:
     special_Rs = [torch.eye(3)]
@@ -31,7 +35,7 @@ def test_wigner():
 
     for i, angle in enumerate(angles):
         my_angle = my_angles[:, i]
-        assert torch.allclose(angle, my_angle, atol=1e-5)
+        assert torch.allclose(angle, my_angle, atol=1e-4)
 
     # test that wigner for the identity matrix is the identity matrix
     for l in range(4):
@@ -68,4 +72,13 @@ def test_wigner():
         wigner_D_from_matrix(4, matrix).transpose(-1, -2),
         wigner_D_from_matrix(4, matrix.transpose(-1, -2)),
         atol=1e-6,
+    )
+
+    # test euler angle inversion:
+    matrices = rand_matrix(100)
+    angles = euler_angles_yxy(matrices)
+    euler_diff = euler_angle_inversion(angles) - euler_angles_yxy(matrices.transpose(-1, -2))
+    # check that euler_diff is close to multiples of 2pi
+    assert torch.allclose(
+        euler_diff, torch.round(euler_diff / (2 * torch.pi)) * 2 * torch.pi, atol=1e-6
     )

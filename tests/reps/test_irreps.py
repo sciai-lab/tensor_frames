@@ -3,6 +3,7 @@ from e3nn import o3
 
 from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
 from tensorframes.reps.irreps import Irrep, Irreps, IrrepsTransform
+from tensorframes.reps.tensorreps import TensorReps
 
 
 def test_irreps():
@@ -51,6 +52,12 @@ def test_irreps():
         atol=1e-7,
     )
 
+    # test that on vectors tensorreps and irreps agree:
+    tensor_reps = TensorReps("5x1")
+    tensor_reps_transform = tensor_reps.get_transform_class()
+    tensor_transformed_coeffs = tensor_reps_transform(coeffs.clone(), basis_change)
+    assert torch.allclose(tensor_transformed_coeffs, transformed_coeffs, atol=1e-7)
+
     # test that 1p transforms correctly:
     irrep = Irreps("5x1p")
     coeffs = torch.randn(10, irrep.dim)
@@ -62,3 +69,9 @@ def test_irreps():
         * basis_change.det[:, None, None],
         atol=1e-7,
     )
+
+    # test that on vectors tensorreps and irreps agree:
+    tensor_reps = TensorReps("5x1p")
+    tensor_reps_transform = tensor_reps.get_transform_class()
+    tensor_transformed_coeffs = tensor_reps_transform(coeffs.clone(), basis_change)
+    assert torch.allclose(tensor_transformed_coeffs, transformed_coeffs, atol=1e-7)
