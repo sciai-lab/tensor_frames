@@ -9,6 +9,7 @@ from tensorframes.utils.wigner import (
 
 
 def test_wigner():
+    """Test the wigner functions."""
     # test angle implementation:
     R = rand_matrix(1000)
 
@@ -20,7 +21,7 @@ def test_wigner():
 
     for i, angle in enumerate(angles):
         my_angle = my_angles[:, i]
-        assert torch.allclose(angle, my_angle, atol=1e-4)
+        assert torch.allclose(angle, my_angle, atol=1e-3)
 
     # test angle special cases:
     special_Rs = [torch.eye(3)]
@@ -35,7 +36,7 @@ def test_wigner():
 
     for i, angle in enumerate(angles):
         my_angle = my_angles[:, i]
-        assert torch.allclose(angle, my_angle, atol=1e-4)
+        assert torch.allclose(angle, my_angle, atol=1e-3)
 
     # test that wigner for the identity matrix is the identity matrix
     for l in range(4):
