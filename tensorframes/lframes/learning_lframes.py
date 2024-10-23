@@ -8,7 +8,7 @@ from torch_geometric.nn import MessagePassing, radius
 from torch_geometric.typing import PairTensor
 
 from tensorframes.lframes.classical_lframes import LFramesPredictionModule
-from tensorframes.lframes.gram_schmidt import gram_schmidt
+from tensorframes.lframes.gram_schmidt import double_cross_orthogonalize, gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import RadialEmbedding
 from tensorframes.nn.envelope import EnvelopePoly
@@ -168,13 +168,17 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
                 vec2 = vecs[:, 0, :]
                 vec3 = vecs[:, 1, :]
 
-            local_frames = gram_schmidt(
-                vec1,
-                vec2,
-                vec3,
-                exceptional_choice=self.exceptional_choice,
-                use_double_cross_product=self.use_double_cross_product,
-            )
+            if self.use_double_cross_product:
+                local_frames = double_cross_orthogonalize(
+                    vec1, vec2, vec3, exceptional_choice=self.exceptional_choice
+                )
+            else:
+                local_frames = gram_schmidt(
+                    vec1,
+                    vec2,
+                    vec3,
+                    exceptional_choice=self.exceptional_choice,
+                )
         else:
             if self.gravitational_axis is None:
                 vec1 = vecs[:, 0, :]
@@ -183,12 +187,16 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
                 vec1 = self.gravitational_axis[None, :].repeat(vecs.shape[0], 1)
                 vec2 = vecs[:, 0, :]
 
-            local_frames = gram_schmidt(
-                vec1,
-                vec2,
-                exceptional_choice=self.exceptional_choice,
-                use_double_cross_product=self.use_double_cross_product,
-            )
+            if self.use_double_cross_product:
+                local_frames = double_cross_orthogonalize(
+                    vec1, vec2, exceptional_choice=self.exceptional_choice
+                )
+            else:
+                local_frames = gram_schmidt(
+                    vec1,
+                    vec2,
+                    exceptional_choice=self.exceptional_choice,
+                )
 
         # permute the axes to be at the correct index position:
         if self.index_order is not None:

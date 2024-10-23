@@ -6,7 +6,7 @@ import torch
 from e3nn.o3 import angles_to_matrix
 
 from tensorframes.lframes import LFrames
-from tensorframes.lframes.gram_schmidt import gram_schmidt
+from tensorframes.lframes.gram_schmidt import gram_schmidt_old
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
 from tensorframes.utils.quaternions import quaternions_to_matrix
@@ -86,7 +86,7 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
             vec_1 = self.gravitational_axis[None, :].repeat(out.shape[0], 1)
             vec_2 = out
 
-        rot_matr = gram_schmidt(
+        rot_matr = gram_schmidt_old(
             vec_1,
             vec_2,
             exceptional_choice=self.exceptional_choice,
