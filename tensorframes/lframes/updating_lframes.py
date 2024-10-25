@@ -6,7 +6,7 @@ import torch
 from e3nn.o3 import angles_to_matrix
 
 from tensorframes.lframes import LFrames
-from tensorframes.lframes.gram_schmidt import gram_schmidt
+from tensorframes.lframes.gram_schmidt import double_cross_orthogonalize, gram_schmidt
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
 from tensorframes.utils.quaternions import quaternions_to_matrix
@@ -86,12 +86,17 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
             vec_1 = self.gravitational_axis[None, :].repeat(out.shape[0], 1)
             vec_2 = out
 
-        rot_matr = gram_schmidt(
-            vec_1,
-            vec_2,
-            exceptional_choice=self.exceptional_choice,
-            use_double_cross_product=self.use_double_cross_product,
-        )
+        if self.use_double_cross_product:
+            rot_matr = double_cross_orthogonalize(
+                vec_1, vec_2, exceptional_choice=self.exceptional_choice
+            )
+        else:
+            rot_matr = gram_schmidt(
+                vec_1,
+                vec_2,
+                exceptional_choice=self.exceptional_choice,
+            )
+
         if self.index_order is not None:
             rot_matr = rot_matr[:, self.index_order]
         new_lframes = LFrames(torch.einsum("ijk, ikn -> ijn", rot_matr, lframes.matrices))
