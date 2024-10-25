@@ -49,3 +49,17 @@ def test_lframes():
 
     # test the wigner:
     assert torch.allclose(lframes_inv_no_cache.wigner_D(2), lframes_inv.wigner_D(2), atol=1e-6)
+
+    # test index select:
+    lframes = RandomLFrames()(pos=torch.zeros(num_lframes, 3))
+    # lframes.wigner_D(2)
+    index = torch.randint(0, num_lframes, (num_lframes // 2,))
+    lframes_sub = lframes.index_select(index)
+    lframes_sub2 = LFrames(lframes.matrices[index])
+
+    assert torch.allclose(lframes_sub.angles, lframes_sub2.angles, atol=1e-6)
+    assert torch.allclose(lframes_sub.wigner_D(2), lframes_sub2.wigner_D(2), atol=1e-6)
+
+
+if __name__ == "__main__":
+    test_lframes()

@@ -69,7 +69,7 @@ class LFrames:
             torch.Tensor: Tensor containing the Euler angles.
         """
         if self._angles is None:
-            self._angles = euler_angles_yxy(self.matrices)
+            self._angles = euler_angles_yxy(self.det[:, None, None] * self.matrices)
         return self._angles
 
     @property
@@ -325,6 +325,7 @@ class IndexSelectLFrames(LFrames):
             torch.Tensor: Tensor containing the Wigner D matrices.
         """
         if l not in self.wigner_cache:
+            # in some cases this may not be the most efficient way since all wigners are calculated.
             self.wigner_cache[l] = self.lframes.wigner_D(l).index_select(0, self.indices)
         return self.wigner_cache[l]
 
@@ -385,6 +386,7 @@ class ChangeOfLFrames(LFrames):
             torch.Tensor: Tensor containing the Euler angles.
         """
         if self._angles is None:
+            # note: these are actually never used, given the definition of wigners below
             self._angles = euler_angles_yxy(self.matrices)
         return self._angles
 
