@@ -1,5 +1,6 @@
 from typing import Union
 
+import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -31,7 +32,10 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         concat_receiver: bool = True,
         exceptional_choice: str = "random",
         anchor_z_axis: bool = True,
+        fix_gravitational_axis: bool = False,
+        gravitational_axis_index: int = 1,
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
+        use_double_cross_product: bool = False,
         **mlp_kwargs: dict,
     ) -> None:
         """Initialize the LearnedGramSchmidtLFrames model.
@@ -46,7 +50,10 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
             concat_receiver (bool, optional): Whether to concatenate the receiver input to the mlp input. Defaults to True.
             exceptional_choice (str, optional): The exceptional choice, which is used by gram schmidt. Defaults to "random".
             anchor_z_axis (bool, optional): Whether to anchor the z-axis. Defaults to False.
+            fix_gravitational_axis (bool, optional): Whether to fix the gravitational axis. Defaults to False.
+            gravitational_axis_index (int, optional): The index of the gravitational axis. Defaults to 1.
             envelope (Union[torch.nn.Module, None], optional): The envelope module. Defaults to EnvelopePoly(5).
+            use_double_cross_product (bool, optional): Whether to use the double cross product method to compute the third vector. Defaults to False.
             **mlp_kwargs (dict): Additional keyword arguments for the MLP.
         """
         super().__init__()
@@ -69,11 +76,28 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
             ), f"anchor_z_axis only works with predict_o3, predict_o3 = {predict_o3}"
             self.num_pred_vecs -= 1
 
+        if fix_gravitational_axis:
+            gravitational_axis = torch.zeros(3)
+            gravitational_axis[gravitational_axis_index] = 1.0
+            self.register_buffer("gravitational_axis", gravitational_axis)
+            self.num_pred_vecs -= 1
+
+            # find the even permutation where index_order[gravitational_axis_index] is 0:
+            index_order = [0, 1, 2]
+            for i in range(3):
+                current_index_order = np.roll(index_order, i)
+                if current_index_order[gravitational_axis_index] == 0:
+                    self.index_order = current_index_order.tolist()
+        else:
+            self.gravitational_axis = None
+            self.index_order = None
+
         self.hidden_channels.append(self.num_pred_vecs)
 
         self.cutoff = cutoff
         self.concat_receiver = concat_receiver
         self.exceptional_choice = exceptional_choice
+        self.use_double_cross_product = use_double_cross_product
 
         if self.cutoff is not None:
             self.envelope = envelope
@@ -135,17 +159,40 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
             vecs = vecs.reshape(-1, self.num_pred_vecs, 3)
 
         if self.predict_o3:
+            if self.gravitational_axis is None:
+                vec1 = vecs[:, 0, :]
+                vec2 = vecs[:, 1, :]
+                vec3 = vecs[:, 2, :]
+            else:
+                vec1 = self.gravitational_axis[None, :].repeat(vecs.shape[0], 1)
+                vec2 = vecs[:, 0, :]
+                vec3 = vecs[:, 1, :]
+
             local_frames = gram_schmidt(
-                vecs[:, 0, :],
-                vecs[:, 1, :],
-                vecs[:, 2, :],
+                vec1,
+                vec2,
+                vec3,
                 exceptional_choice=self.exceptional_choice,
+                use_double_cross_product=self.use_double_cross_product,
             )
         else:
+            if self.gravitational_axis is None:
+                vec1 = vecs[:, 0, :]
+                vec2 = vecs[:, 1, :]
+            else:
+                vec1 = self.gravitational_axis[None, :].repeat(vecs.shape[0], 1)
+                vec2 = vecs[:, 0, :]
+
             local_frames = gram_schmidt(
-                vecs[:, 0, :], vecs[:, 1, :], exceptional_choice=self.exceptional_choice
+                vec1,
+                vec2,
+                exceptional_choice=self.exceptional_choice,
+                use_double_cross_product=self.use_double_cross_product,
             )
 
+        # permute the axes to be at the correct index position:
+        if self.index_order is not None:
+            local_frames = local_frames[:, self.index_order]
         return LFrames(local_frames)
 
     def message(

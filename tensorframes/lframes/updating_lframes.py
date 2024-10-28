@@ -1,6 +1,7 @@
 import warnings
 from typing import Tuple, Union
 
+import numpy as np
 import torch
 from e3nn.o3 import angles_to_matrix
 
@@ -14,24 +15,55 @@ from tensorframes.utils.quaternions import quaternions_to_matrix
 class GramSchmidtUpdateLFrames(torch.nn.Module):
     """Module for updating LFrames using Gram-Schmidt orthogonalization."""
 
-    def __init__(self, in_reps: Union[TensorReps, Irreps], hidden_channels: list, **mlp_kwargs):
+    def __init__(
+        self,
+        in_reps: Union[TensorReps, Irreps],
+        hidden_channels: list,
+        fix_gravitational_axis: bool = False,
+        gravitational_axis_index: int = 1,
+        exceptional_choice: str = "random",
+        use_double_cross_product: bool = False,
+        **mlp_kwargs,
+    ):
         """Initialize the GramSchmidtUpdateLFrames module.
 
         Args:
             in_reps (Union[TensorReps, Irreps]): List of input representations.
             hidden_channels (list): List of hidden channel sizes for the MLP.
+            fix_gravitational_axis (bool, optional): Whether to fix the gravitational axis. Defaults to False.
+            gravitational_axis_index (int, optional): Index of the gravitational axis. Defaults to 1.
+            exceptional_choice (str, optional): Choice of exceptional index. Defaults to "random".
+            use_double_cross_product (bool, optional): Whether to use the double cross product to predict the vectors. Defaults to False.
             **mlp_kwargs: Additional keyword arguments for the MLPWrapped module.
         """
         super().__init__()
         self.in_reps = in_reps
+        if fix_gravitational_axis:
+            gravitational_axis = torch.zeros(3)
+            gravitational_axis[gravitational_axis_index] = 1.0
+            self.register_buffer("gravitational_axis", gravitational_axis)
+            out_dim = 3
 
+            # find the even permutation where index_order[gravitational_axis_index] is 0:
+            index_order = [0, 1, 2]
+            for i in range(3):
+                current_index_order = np.roll(index_order, i)
+                if current_index_order[gravitational_axis_index] == 0:
+                    self.index_order = current_index_order.tolist()
+
+        else:
+            self.gravitational_axis = None
+            self.index_order = None
+            out_dim = 6
         self.mlp = MLPWrapped(
             in_channels=self.in_reps.dim,
-            hidden_channels=hidden_channels + [6],
+            hidden_channels=hidden_channels + [out_dim],
             **mlp_kwargs,
         )
 
         self.coeffs_transform = self.in_reps.get_transform_class()
+        self.exceptional_choice = exceptional_choice
+        self.use_double_cross_product = use_double_cross_product
 
     def forward(
         self, x: torch.Tensor, lframes: LFrames, batch: torch.Tensor
@@ -47,11 +79,21 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
             Tuple[torch.Tensor, LFrames]: Tuple containing the updated input tensor and LFrames object.
         """
         out = self.mlp(x, batch=batch)
-        vec_1 = out[:, :3]
-        vec_2 = out[:, 3:]
+        if self.gravitational_axis is None:
+            vec_1 = out[:, :3]
+            vec_2 = out[:, 3:]
+        else:
+            vec_1 = self.gravitational_axis[None, :].repeat(out.shape[0], 1)
+            vec_2 = out
 
-        rot_matr = gram_schmidt(vec_1, vec_2)
-
+        rot_matr = gram_schmidt(
+            vec_1,
+            vec_2,
+            exceptional_choice=self.exceptional_choice,
+            use_double_cross_product=self.use_double_cross_product,
+        )
+        if self.index_order is not None:
+            rot_matr = rot_matr[:, self.index_order]
         new_lframes = LFrames(torch.einsum("ijk, ikn -> ijn", rot_matr, lframes.matrices))
         new_x = self.coeffs_transform(x, LFrames(rot_matr))
 
@@ -66,7 +108,7 @@ class AngleUpdateLFrames(torch.nn.Module):
         in_reps: Union[TensorReps, Irreps],
         hidden_channels: list,
         use_atan2: bool = False,
-        **mlp_kwargs
+        **mlp_kwargs,
     ):
         """Initialize the AngleUpdateLFrames module.
 
@@ -128,7 +170,7 @@ class QuaternionsUpdateLFrames(torch.nn.Module):
         hidden_channels: list,
         init_zero_angle: bool = False,
         eps: float = 1e-6,
-        **mlp_kwargs
+        **mlp_kwargs,
     ):
         """Initialize the QuaternionsUpdateLFrames module.
 

@@ -339,11 +339,6 @@ class IrrepsTransform(Module):
 
         # sort start indices and reps by angular momentum largest first, l_masks can also be precomputed
         self.sorted_l = sorted(l_start_index_dict.keys(), reverse=True)
-        self.is_sorted = all(
-            mul_reps.rep.angular_momentum == self.sorted_l[::-1][i]
-            for i, mul_reps in enumerate(self.irreps)
-        )
-
         self.l_masks = []
         self.l_muls = []
         self.start_end_indices = []
@@ -407,7 +402,7 @@ class IrrepsTransform(Module):
 
         for i, l in enumerate(self.sorted_l):
             # this for loop could be avoided if all l's have the same multiplicity, like in equiformerv2
-            if self.is_sorted:
+            if self.irreps.is_sorted:
                 start_idx, end_idx = self.start_end_indices[i]
                 l_tensor = coeffs[:, start_idx:end_idx].view(N, -1, 2 * l + 1)
             else:
@@ -416,7 +411,7 @@ class IrrepsTransform(Module):
 
             # perform the transformation:
             wigner = basis_change.wigner_D(l).transpose(-1, -2)
-            if self.is_sorted:
+            if self.irreps.is_sorted:
                 output_coeffs[:, start_idx:end_idx] = torch.matmul(l_tensor, wigner).flatten(1)
             else:
                 output_coeffs[:, l_mask] = torch.matmul(l_tensor, wigner).flatten(1)
