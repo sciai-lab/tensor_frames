@@ -2,6 +2,7 @@ from typing import Union
 
 import torch
 
+from tensorframes.reps.blockreps import BlockReps
 from tensorframes.reps.irreps import Irrep, Irreps
 from tensorframes.reps.maskreps import MaskReps
 from tensorframes.reps.mlpreps import MLPReps
@@ -50,8 +51,10 @@ def parse_reps(reps: Union[TensorReps, Irreps, str]) -> Union[TensorReps, Irreps
             return TensorReps(reps[1:])
         elif reps[0].lower() == "m":
             return MLPReps(int(reps[1:]))
-        elif reps[0].lower() == "b":
+        elif reps[0].lower() == "d":
             return MaskReps(int(reps[1:]))
+        elif reps[0].lower() == "b":
+            return BlockReps(reps[1:])
         else:
             raise ValueError(f"Invalid representation type {reps}")
     elif isinstance(reps, TensorReps):

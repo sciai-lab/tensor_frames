@@ -78,7 +78,7 @@ class ThreeNNLFrames(LFramesPredictionModule):
 class RandomLFrames(LFramesPredictionModule):
     """Randomly generates local frames for each node."""
 
-    def __init__(self, flip_probability=0.5) -> None:
+    def __init__(self, flip_probability: float = 0.5) -> None:
         """Initialize an instance of the RandomLFrames class.
 
         Args:
@@ -113,9 +113,14 @@ class RandomLFrames(LFramesPredictionModule):
 class RandomGlobalLFrames(LFramesPredictionModule):
     """Randomly generates a global frame."""
 
-    def __init__(self) -> None:
-        """Initializes an instance of the RandomGlobalLFrames class."""
+    def __init__(self, flip_probability: float = 0.5) -> None:
+        """Initializes an instance of the RandomGlobalLFrames class.
+
+        Args:
+            flip_probability (float, optional): The probability of flipping the frames. Defaults to 0.5.
+        """
         super().__init__()
+        self.flip_probability = flip_probability
 
     def forward(
         self, pos: Tensor, idx: Union[Tensor, None] = None, batch: Union[Tensor, None] = None
@@ -137,7 +142,7 @@ class RandomGlobalLFrames(LFramesPredictionModule):
         matrix = rand_matrix(1, device=pos.device)
 
         # if random number is less than 0.5, flip the x-axis
-        if torch.rand(1, device=pos.device) < 0.5:
+        if torch.rand(1, device=pos.device) < self.flip_probability:
             matrix[0] = -matrix[0]
 
         return LFrames(matrix.repeat(pos[idx].shape[0], 1, 1))

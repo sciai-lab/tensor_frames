@@ -20,7 +20,153 @@ def symmetric_non_small_noise_like(x: Tensor, eps: float = 1e-6, scale: float = 
     return (torch.randn_like(x).abs() * scale + 2 * eps) * random_sign
 
 
+def check_for_zero_length(
+    x: Tensor,
+    eps: float = 1e-6,
+    replacement_method: str = "random",
+    verbose=False,
+    orthogonalize_replacement_to: Tensor | None = None,
+) -> Tensor:
+    """Checks for zero length vectors and replaces them with random noise.
+
+    Args:
+        x (Tensor): The input tensor.
+        eps (float, optional): The minimum value of the noise. Defaults to 1e-6.
+        replacement_method (str, optional): The method to use for replacing zero length vectors. Defaults to "random".
+
+    Returns:
+        Tensor: The output tensor with zero length vectors replaced.
+    """
+    x_length = torch.linalg.norm(x, dim=-1, keepdim=True)
+
+    x_zero_mask = (x_length < eps).squeeze()
+    if torch.any(x_zero_mask):
+        if verbose:
+            warnings.warn("provided tensor has zero length")
+        if replacement_method == "random":
+            x_replacement = x + symmetric_non_small_noise_like(x, eps=eps)
+
+            if orthogonalize_replacement_to is not None:
+                x_replacement = (
+                    x_replacement
+                    - torch.einsum("ij,ij->i", orthogonalize_replacement_to, x_replacement)[
+                        :, None
+                    ]
+                    * orthogonalize_replacement_to
+                )
+
+            x = torch.where(x_zero_mask[:, None], x_replacement, x)
+            x_length = torch.linalg.norm(x, dim=-1, keepdim=True)
+        elif replacement_method == "zero":
+            assert (
+                orthogonalize_replacement_to is None
+            ), "orthogonalize_to is not supported with replacement_method='zero'"
+            x = torch.where(x_zero_mask[:, None], torch.zeros_like(x), x)
+            x_length = torch.where(x_zero_mask[:, None], eps, x_length)
+        else:
+            raise ValueError(f"replacement_method {replacement_method} not recognized")
+
+    return x, x_length
+
+
 def gram_schmidt(
+    x_axis: Tensor,
+    y_axis: Tensor,
+    z_axis: Union[Tensor, None] = None,
+    eps: float = 1e-6,
+    exceptional_choice: str = "random",
+) -> Tensor:
+    """Applies the Gram-Schmidt process to a set of input vectors to orthogonalize them.
+
+    Args:
+        x_axis (Tensor): The first input vector. shape (N, 3)
+        y_axis (Tensor): The second input vector. shape (N, 3)
+        z_axis (Tensor, optional): The third input vector. shape (N, 3) Defaults to None. If None, the third vector is computed as the cross product of the first two.
+        eps (float, optional): A small value used for numerical stability. Defaults to 1e-6.
+        normalized (bool, optional): Whether to normalize the output vectors. Defaults to True.
+        exceptional_choice (str, optional): The method to handle exceptional cases where the input vectors have zero length.
+            Can be either "random" to use a random vector instead, or "zero" to set the vectors to zero.
+            Defaults to "random".
+        use_double_cross_product (bool, optional): Whether to use the double cross product method to compute the third vector. Defaults to False.
+
+    Returns:
+        Tensor: A tensor containing the orthogonalized vectors the tensor has shape (N, 3, 3).
+
+    Raises:
+        ValueError: If the exceptional_choice parameter is not recognized.
+        AssertionError: If z_axis has zero length.
+    """
+
+    x, x_length = check_for_zero_length(x_axis, eps=eps, replacement_method=exceptional_choice)
+    x = x / torch.clamp(x_length, eps)
+
+    y = y_axis - torch.einsum("ij,ij->i", y_axis, x)[:, None] * x
+    y, y_length = check_for_zero_length(
+        y, eps=eps, replacement_method=exceptional_choice, orthogonalize_replacement_to=x
+    )
+    y = y / torch.clamp(y_length, eps)
+
+    z = torch.linalg.cross(x, y, dim=-1)
+    if z_axis is not None:
+        # use its direction to determine the sign of the z-axis
+        z_dot = torch.einsum("ij, ij -> i", z, z_axis)
+        z = torch.where((z_dot < 0)[:, None], -z, z)
+
+    return torch.stack([x, y, z], dim=-2)
+
+
+def double_cross_orthogonalize(
+    x_axis: Tensor,
+    y_axis: Tensor,
+    z_axis: Union[Tensor, None] = None,
+    eps: float = 1e-6,
+    exceptional_choice: str = "random",
+) -> Tensor:
+    """Applies the Gram-Schmidt process to a set of input vectors to orthogonalize them.
+
+    Args:
+        x_axis (Tensor): The first input vector. shape (N, 3)
+        y_axis (Tensor): The second input vector. shape (N, 3)
+        z_axis (Tensor, optional): The third input vector. shape (N, 3) Defaults to None. If None, the third vector is computed as the cross product of the first two.
+        eps (float, optional): A small value used for numerical stability. Defaults to 1e-6.
+        normalized (bool, optional): Whether to normalize the output vectors. Defaults to True.
+        exceptional_choice (str, optional): The method to handle exceptional cases where the input vectors have zero length.
+            Can be either "random" to use a random vector instead, or "zero" to set the vectors to zero.
+            Defaults to "random".
+        use_double_cross_product (bool, optional): Whether to use the double cross product method to compute the third vector. Defaults to False.
+
+    Returns:
+        Tensor: A tensor containing the orthogonalized vectors the tensor has shape (N, 3, 3).
+
+    Raises:
+        ValueError: If the exceptional_choice parameter is not recognized.
+        AssertionError: If z_axis has zero length.
+    """
+
+    x, x_length = check_for_zero_length(x_axis, eps=eps, replacement_method=exceptional_choice)
+    x = x / torch.clamp(x_length, eps)
+
+    y = torch.linalg.cross(x, y_axis, dim=-1)
+    y, y_length = check_for_zero_length(
+        y, eps=eps, replacement_method=exceptional_choice, orthogonalize_replacement_to=x
+    )
+    y = y / torch.clamp(y_length, eps)
+
+    if z_axis is not None:
+        # use its direction to determine the sign of the y-axis
+        y_dot = torch.einsum("ij, ij -> i", y, z_axis)
+        y = torch.where((y_dot < 0)[:, None], -y, y)
+
+    z = torch.linalg.cross(x, y, dim=-1)
+    if z_axis is not None:
+        # use its direction to determine the sign of the z-axis
+        z_dot = torch.einsum("ij, ij -> i", z, z_axis)
+        z = torch.where((z_dot < 0)[:, None], -z, z)
+
+    return torch.stack([x, y, z], dim=-2)
+
+
+def gram_schmidt_old(
     x_axis: Tensor,
     y_axis: Tensor,
     z_axis: Union[Tensor, None] = None,
@@ -121,7 +267,13 @@ def gram_schmidt(
                 torch.sign(z_dot),
             )
             z_axis = z_tmp * z_sign[:, None]
+            if use_double_cross_product:
+                # to ensure the O(3)-equivariance of lframes
+                y_axis = y_axis * z_sign[:, None]
         else:
+            assert (
+                not use_double_cross_product
+            ), "use_double_cross_product is not supported with normalized=False"
             z_axis = (
                 z_axis
                 - torch.einsum("ij,ij->i", z_axis, x_axis)[:, None]

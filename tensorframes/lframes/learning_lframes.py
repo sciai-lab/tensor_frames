@@ -8,7 +8,7 @@ from torch_geometric.nn import MessagePassing, radius
 from torch_geometric.typing import PairTensor
 
 from tensorframes.lframes.classical_lframes import LFramesPredictionModule
-from tensorframes.lframes.gram_schmidt import gram_schmidt
+from tensorframes.lframes.gram_schmidt import double_cross_orthogonalize, gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import RadialEmbedding
 from tensorframes.nn.envelope import EnvelopePoly
@@ -168,13 +168,17 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
                 vec2 = vecs[:, 0, :]
                 vec3 = vecs[:, 1, :]
 
-            local_frames = gram_schmidt(
-                vec1,
-                vec2,
-                vec3,
-                exceptional_choice=self.exceptional_choice,
-                use_double_cross_product=self.use_double_cross_product,
-            )
+            if self.use_double_cross_product:
+                local_frames = double_cross_orthogonalize(
+                    vec1, vec2, vec3, exceptional_choice=self.exceptional_choice
+                )
+            else:
+                local_frames = gram_schmidt(
+                    vec1,
+                    vec2,
+                    vec3,
+                    exceptional_choice=self.exceptional_choice,
+                )
         else:
             if self.gravitational_axis is None:
                 vec1 = vecs[:, 0, :]
@@ -183,12 +187,16 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
                 vec1 = self.gravitational_axis[None, :].repeat(vecs.shape[0], 1)
                 vec2 = vecs[:, 0, :]
 
-            local_frames = gram_schmidt(
-                vec1,
-                vec2,
-                exceptional_choice=self.exceptional_choice,
-                use_double_cross_product=self.use_double_cross_product,
-            )
+            if self.use_double_cross_product:
+                local_frames = double_cross_orthogonalize(
+                    vec1, vec2, exceptional_choice=self.exceptional_choice
+                )
+            else:
+                local_frames = gram_schmidt(
+                    vec1,
+                    vec2,
+                    exceptional_choice=self.exceptional_choice,
+                )
 
         # permute the axes to be at the correct index position:
         if self.index_order is not None:
@@ -230,7 +238,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         if self.even_scalar_edge_dim > 0 and edge_attr is not None:
             inp = torch.cat([inp, edge_attr], dim=-1)
 
-        mlp_out = self.mlp(x=inp, batch=batch_j.flatten())
+        mlp_out = self.mlp(x=inp, batch=None if batch_j is None else batch_j.flatten())
 
         relative_vec = pos_j - pos_i
         relative_norm = torch.clamp(torch.linalg.norm(relative_vec, dim=-1, keepdim=True), 1e-6)
@@ -266,7 +274,6 @@ class WrappedLearnedLFrames(Module):
         max_radius: Union[float, None] = None,
         edge_attr_tensor_reps: Union[TensorReps, Irreps, None] = None,
         max_num_neighbors: int = 64,
-        flatten: bool = True,
         **kwargs,
     ) -> None:
         """Initializes the WrappedLearnedLocalFramesModule.
@@ -278,7 +285,6 @@ class WrappedLearnedLFrames(Module):
             radial_module (torch.nn.Module, optional): The radial module for the radial embedding. Defaults to None.
             edge_attr_tensor_reps (Union[TensorReps, Irreps], optional): The edge attribute tensor representations. Defaults to None.
             max_num_neighbors (int, optional): The maximum number of neighbors for the radius-graph neighbor search. Defaults to 64.
-            flatten (bool, optional): Whether to flatten the output. Defaults to True.
             **kwargs: Additional keyword arguments of the LearnedGramSchmidtLFrames module.
         """
         super().__init__()
@@ -299,7 +305,6 @@ class WrappedLearnedLFrames(Module):
         self.radial_module = radial_module
         self.max_radius = max_radius
         self.max_num_neighbors = max_num_neighbors
-        self.flatten = flatten
         if max_radius is not None:
             # use max radius also as the cutoff.
             kwargs["cutoff"] = max_radius

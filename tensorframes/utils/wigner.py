@@ -144,6 +144,25 @@ def euler_angles_yxy(
     return angles
 
 
+def euler_angle_inversion(angles: torch.Tensor) -> torch.Tensor:
+    """Inverts the given Euler angles to find the euler angles for the transpose o(3) matrix in the
+    convention above..
+
+    Args:
+        angles (torch.Tensor): A tensor of Euler angles. The shape of the tensor
+                               should be (..., 3), where the last dimension represents
+                               the three Euler angles.
+
+    Returns:
+        torch.Tensor: A tensor of the same shape as `angles` with the first and third
+                      angles inverted.
+    """
+    inv_angles = angles.clone()
+    inv_angles[..., 0] = torch.pi - angles[..., 2]
+    inv_angles[..., 2] = torch.pi - angles[..., 0]
+    return inv_angles
+
+
 def wigner_D(l: int, alpha: torch.Tensor, beta: torch.Tensor, gamma: torch.Tensor) -> torch.Tensor:
     """
     Calculate the Wigner D matrix using the precomputed J matrix and Euler angles.

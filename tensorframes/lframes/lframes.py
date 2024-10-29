@@ -1,6 +1,10 @@
 import torch
 
-from tensorframes.utils.wigner import euler_angles_yxy, wigner_D_from_matrix
+from tensorframes.utils.wigner import (
+    euler_angle_inversion,
+    euler_angles_yxy,
+    wigner_D_from_matrix,
+)
 
 
 class LFrames:
@@ -65,7 +69,7 @@ class LFrames:
             torch.Tensor: Tensor containing the Euler angles.
         """
         if self._angles is None:
-            self._angles = euler_angles_yxy(self.matrices)
+            self._angles = euler_angles_yxy(self.det[:, None, None] * self.matrices)
         return self._angles
 
     @property
@@ -187,7 +191,7 @@ class InvLFrames(LFrames):
             torch.Tensor: Tensor containing the Euler angles.
         """
         if self._angles is None:
-            self._angles = -self.lframes.angles.flip((-1,))
+            self._angles = euler_angle_inversion(self.lframes.angles)
         return self._angles
 
     def index_select(self, indices: torch.Tensor) -> LFrames:
@@ -321,6 +325,7 @@ class IndexSelectLFrames(LFrames):
             torch.Tensor: Tensor containing the Wigner D matrices.
         """
         if l not in self.wigner_cache:
+            # in some cases this may not be the most efficient way since all wigners are calculated.
             self.wigner_cache[l] = self.lframes.wigner_D(l).index_select(0, self.indices)
         return self.wigner_cache[l]
 
@@ -381,6 +386,7 @@ class ChangeOfLFrames(LFrames):
             torch.Tensor: Tensor containing the Euler angles.
         """
         if self._angles is None:
+            # note: these are actually never used, given the definition of wigners below
             self._angles = euler_angles_yxy(self.matrices)
         return self._angles
 
@@ -411,16 +417,10 @@ class ChangeOfLFrames(LFrames):
         Returns:
             torch.Tensor: Tensor containing the Wigner D matrices.
         """
-        # check if both LFrames objects have the Wigner D matrices cached:
-        if l in self.lframes_start.wigner_cache and l in self.lframes_end.wigner_cache:
-            wigner_start = self.lframes_start.wigner_cache[l]
-            wigner_end = self.lframes_end.wigner_cache[l]
-            return torch.bmm(wigner_end, wigner_start.transpose(-1, -2))
-        else:
-            return torch.bmm(
-                self.lframes_end.wigner_D(l),
-                self.lframes_start.wigner_D(l).transpose(-1, -2),
-            )
+        return torch.bmm(
+            self.lframes_end.wigner_D(l),
+            self.lframes_start.wigner_D(l).transpose(-1, -2),
+        )
 
     def inverse_lframes(self) -> "ChangeOfLFrames":
         """Returns the inverse of the ChangeOfLFrames object.
