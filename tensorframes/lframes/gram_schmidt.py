@@ -42,7 +42,7 @@ def check_for_zero_length(
     x_zero_mask = (x_length < eps).squeeze()
     if torch.any(x_zero_mask):
         if verbose:
-            warnings.warn("x_axis has zero length")
+            warnings.warn("provided tensor has zero length")
         if replacement_method == "random":
             x_replacement = x + symmetric_non_small_noise_like(x, eps=eps)
 
