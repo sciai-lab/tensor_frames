@@ -21,16 +21,20 @@ class LFramesPredictionModule(torch.nn.Module):
 class PCALFrames(LFramesPredictionModule):
     """Computes local frames using PCA."""
 
-    def __init__(self, r: float = 0.1, max_num_neighbors: int = 10) -> None:
+    def __init__(
+        self, r: float, max_num_neighbors: int = 64, exceptional_choice: str = "random"
+    ) -> None:
         """Initializes an instance of the PCALFrames class.
 
         Args:
-            radius (float, optional): The radius for the PCA computation. Defaults to 0.1.
+            radius (float): The radius for the PCA computation.
             max_neighbors (int, optional): The maximum number of neighbors to consider. Defaults to 10.
+            exceptional_choice (str, optional): The choice for exceptional case (with zero neighbors). Defaults to "random".
         """
         super().__init__()
         self.r = r
         self.max_num_neighbors = max_num_neighbors
+        self.exceptional_choice = exceptional_choice
 
     def forward(
         self, pos: Tensor, idx: Union[Tensor, None] = None, batch: Union[Tensor, None] = None
@@ -63,13 +67,26 @@ class PCALFrames(LFramesPredictionModule):
             edge_index[1],
             dim=0,
         )
-        print("cov_matrices: ", cov_matrices.shape)
 
         # compute the PCA:
         _, eigenvectors = torch.linalg.eigh(cov_matrices)
-        print("eigenvectors: ", eigenvectors.shape)
 
-        return LFrames(eigenvectors)
+        # check how many neighbors each point has:
+        num_neighbors = scatter(
+            torch.ones_like(edge_index[0]), edge_index[1], dim=0, reduce="sum"
+        ).float()
+        no_neighbors_mask = num_neighbors <= 1
+        if self.exceptional_choice == "random":
+            random_lframes = RandomLFrames()(pos[no_neighbors_mask]).matrices
+            eigenvectors[no_neighbors_mask] = random_lframes
+        elif self.exceptional_choice == "zero":
+            eigenvectors[no_neighbors_mask] = 0.0
+        else:
+            assert (
+                NotImplementedError
+            ), f"exceptional_choice {self.exceptional_choice} not implemented"
+
+        return LFrames(eigenvectors.transpose(-1, -2))
 
 
 class ThreeNNLFrames(LFramesPredictionModule):
