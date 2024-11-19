@@ -60,7 +60,7 @@ class PCALFrames(LFramesPredictionModule):
         )
         # print("average number of neighbors: ", len(row) / len(idx), "max_num_neighbors", self.max_num_neighbors)
         edge_index = torch.stack([col, row], dim=0)
-        edge_vec = pos[edge_index[0]] - pos[edge_index[1]]
+        edge_vec = pos[edge_index[0]] - pos[edge_index[1]]  # (N_edges, dim)
 
         cov_matrices = scatter(
             edge_vec.unsqueeze(-1) * edge_vec.unsqueeze(-2),
@@ -70,6 +70,15 @@ class PCALFrames(LFramesPredictionModule):
 
         # compute the PCA:
         _, eigenvectors = torch.linalg.eigh(cov_matrices)
+
+        # choose the directions to be o3 equivariant:
+        eigenvectors = eigenvectors.transpose(-1, -2)  # (N, n_vec, dim_vec)
+
+        # for each eigenvector compute average dot product with edge vectors:
+        dots = torch.einsum("ijk,ik->ij", eigenvectors[edge_index[1]], edge_vec)
+        summed_dots = scatter(dots, edge_index[1], dim=0)  # (N, n_vec)
+        sign_mask = (summed_dots > 0).float() * 2 - 1
+        eigenvectors = eigenvectors * sign_mask.unsqueeze(-1)
 
         # check how many neighbors each point has:
         num_neighbors = scatter(
@@ -86,7 +95,7 @@ class PCALFrames(LFramesPredictionModule):
                 NotImplementedError
             ), f"exceptional_choice {self.exceptional_choice} not implemented"
 
-        return LFrames(eigenvectors.transpose(-1, -2))
+        return LFrames(eigenvectors)
 
 
 class ThreeNNLFrames(LFramesPredictionModule):
