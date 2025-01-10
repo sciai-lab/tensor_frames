@@ -12,7 +12,9 @@ class TFMessagePassing(MessagePassing):
     https://arxiv.org/abs/2405.15389v1
     """
 
-    def __init__(self, params_dict: Dict[str, Dict[str, Any]], aggr="add") -> None:
+    def __init__(
+        self, params_dict: Dict[str, Dict[str, Any]], aggr="add", *args, **kwargs
+    ) -> None:
         """Initializes a new instance of the TFMessagePassing class.
 
         Args:
@@ -28,7 +30,7 @@ class TFMessagePassing(MessagePassing):
                 },
             }
         """
-        super().__init__(aggr=aggr)
+        super().__init__(aggr=aggr, *args, **kwargs)
 
         self.params_dict = params_dict
 
