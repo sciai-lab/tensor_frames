@@ -1,5 +1,3 @@
-import os
-
 import torch
 
 # Borrowed from e3nn @ 0.4.0:
@@ -7,32 +5,6 @@ import torch
 # _Jd is a list of tensors of shape (2l+1, 2l+1)
 # We don't load during import time since this causes problems with pytorch lightnings checkpoint loading
 _Jd = None
-
-
-# Borrowed from e3nn @ 0.4.0:
-# https://github.com/e3nn/e3nn/blob/0.4.0/e3nn/o3/_wigner.py#L37
-#
-# In 0.5.0, e3nn shifted to torch.matrix_exp which is significantly slower:
-# https://github.com/e3nn/e3nn/blob/0.5.0/e3nn/o3/_wigner.py#L92
-def _z_rot_mat(angle, l: int) -> torch.Tensor:
-    """Compute the wigner d matrix for a rotation around the z axis with a given angle for an
-    angular momentum.
-
-    Args:
-        angle (torch.Tensor): The rotation angle.
-        l (int): The angular momentum.
-
-    Returns:
-        torch.Tensor: The rotation matrix.
-    """
-    shape, device, dtype = angle.shape, angle.device, angle.dtype
-    M = angle.new_zeros((*shape, 2 * l + 1, 2 * l + 1))
-    inds = torch.arange(0, 2 * l + 1, 1, device=device)
-    reversed_inds = torch.arange(2 * l, -1, -1, device=device)
-    frequencies = torch.arange(l, -l - 1, -1, dtype=dtype, device=device)
-    M[..., inds, reversed_inds] = torch.sin(frequencies * angle[..., None])
-    M[..., inds, inds] = torch.cos(frequencies * angle[..., None])
-    return M
 
 
 def acos_grad(x: torch.Tensor) -> torch.Tensor:
@@ -164,47 +136,6 @@ def euler_angle_inversion(angles: torch.Tensor) -> torch.Tensor:
     return inv_angles
 
 
-def wigner_D(l: int, alpha: torch.Tensor, beta: torch.Tensor, gamma: torch.Tensor) -> torch.Tensor:
-    """
-    Calculate the Wigner D matrix using the precomputed J matrix and Euler angles.
-    Taken from https://github.com/atomicarchitects/equiformer_v2/blob/main/nets/equiformer_v2/wigner.py
-
-    The paper which presents this approach:
-    https://iopscience.iop.org/article/10.1088/1751-8113/40/7/011/pdf
-
-    The original implementation by Taco Cohen:
-    https://github.com/AMLab-Amsterdam/lie_learn/tree/master/lie_learn/representations/SO3/pinchon_hoggan
-
-    Args:
-        l (int): The order of the Wigner D matrix.
-        alpha (torch.Tensor): The rotation angle around the y-axis. shape: (...,)
-        beta (torch.Tensor): The rotation angle around the x-axis. shape like alpha.
-        gamma (torch.Tensor): The rotation angle around the y-axis. shape like alpha.
-
-    Returns:
-        torch.Tensor: The resulting Wigner D matrix of shape (..., 2l+1, 2l+1)
-
-    .. note::
-        The Euler angles are in the yxy convention. But in the paper and other theoretical works one uses the zyz convention. E3nn is special in that regard.
-    """
-    global _Jd
-    if _Jd is None:
-        _Jd = torch.load(os.path.join(os.path.dirname(__file__), "Jd.pt"), weights_only=True)
-
-    if _Jd[l].dtype != alpha.dtype:
-        _Jd[l] = _Jd[l].to(dtype=alpha.dtype)
-
-    if _Jd[l].device != alpha.device:
-        _Jd[l] = _Jd[l].to(device=alpha.device)
-
-    J = _Jd[l]
-
-    Xa = _z_rot_mat(alpha, l)
-    Xb = _z_rot_mat(beta, l)
-    Xc = _z_rot_mat(gamma, l)
-    return Xa @ J @ Xb @ J @ Xc
-
-
 def wigner_D_from_matrix(
     l: int,
     matrix: torch.Tensor,
@@ -226,26 +157,5 @@ def wigner_D_from_matrix(
         return torch.ones(matrix.shape[:-2] + (1, 1), dtype=matrix.dtype, device=matrix.device)
     if l == 1:
         return matrix
-
-    if angles is None:
-        angles = euler_angles_yxy(matrix, handle_special_cases=handle_special_cases)
-
-    return wigner_D(l, angles[..., 0], angles[..., 1], angles[..., 2])
-
-
-if __name__ == "__main__":
-    # compare our implementation with e3nn:
-    import time
-
-    from e3nn.o3 import matrix_to_angles, rand_matrix
-
-    R = rand_matrix(10000)
-    start = time.time()
-    matrix_to_angles(R)
-    diff = time.time() - start
-    print(f"e3nn implementation took {diff:.3f}s")
-
-    start = time.time()
-    euler_angles_yxy(R)
-    diff = time.time() - start
-    print(f"Our implementation took {diff:.3f}s")
+    else:
+        raise NotImplementedError("l > 1 not implemented")
