@@ -28,6 +28,7 @@ class TensorMACE(TFMessagePassing):
         dropout: float = 0.0,
         bias: bool = False,
         atom_wise: bool = False,
+        layer_norm_mode: str = "graph",
     ) -> None:
         """Initialize a TensorMace object.
 
@@ -86,7 +87,7 @@ class TensorMACE(TFMessagePassing):
 
         self.lin_out = torch.nn.Linear(self.hidden_dim, self.out_dim, bias=self.bias)
 
-        self.layer_norm = LayerNorm(self.in_dim)
+        self.layer_norm = LayerNorm(self.in_dim, mode=layer_norm_mode)
         self.dropout = torch.nn.Dropout(dropout)
 
         self.reset_parameters()
