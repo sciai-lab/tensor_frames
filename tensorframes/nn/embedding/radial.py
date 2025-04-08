@@ -12,7 +12,7 @@ from tensorframes.lframes import LFrames
 def double_gradient_safe_norm(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
     """Needed when edge_vec contains zero vectors and when differentiating twice."""
     non_zero_mask = edge_vec.abs().sum(dim=-1) > eps
-    norm = torch.zeros(edge_vec.shape[0], 1, device=edge_vec.device)
+    norm = torch.zeros(edge_vec.shape[0], 1, device=edge_vec.device, dtype=edge_vec.dtype)
     norm[non_zero_mask] = torch.linalg.norm(edge_vec[non_zero_mask], dim=-1, keepdim=True)
     return norm
 
