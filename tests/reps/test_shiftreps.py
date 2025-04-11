@@ -1,50 +1,65 @@
 import torch
 from e3nn import o3
 
-from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.lframes.lframes import LFrames
 from tensorframes.reps.shiftreps import ShiftReps, ShiftRepsTransform
 
 
 def test_shiftreps():
-    rep_1 = "5x0p+3x1+3x2+5x3"
-    rep_2 = "5x0"
+    # rep_1 = "5x0p+3x1+3x2+5x3"
+    # rep_2 = "5x0"
 
-    tensor_reps_1 = ShiftReps(rep_1)
-    tensor_reps_2 = ShiftReps(rep_2)
+    # tensor_reps_1 = ShiftReps(rep_1)
+    # tensor_reps_2 = ShiftReps(rep_2)
 
-    random_rot = o3.rand_matrix(10)
+    # coeffs = torch.randn(10, tensor_reps_1.dim)
+    # shift_reps_transform = ShiftRepsTransform(tensor_reps_1)
+    num_nodes = 10
+    random_rot = o3.rand_matrix(num_nodes)
+    shift = torch.randn(num_nodes, 3)
+    lframes = LFrames(random_rot, shift=shift)
 
-    coeffs = torch.randn(10, tensor_reps_1.dim)
-    shift_reps_transform = ShiftRepsTransform(tensor_reps_1)
-    lframes = LFrames(random_rot, shift=torch.randn(10, 3))
-
-    random_rot = o3.rand_matrix(20)
-    flip_mask = torch.randint(0, 2, (20,), dtype=torch.bool)
-    random_rot[flip_mask] *= -1
-    basis_change = ChangeOfLFrames(LFrames(random_rot[:10]), LFrames(random_rot[10:]))
+    # random_rot = o3.rand_matrix(20)
+    # flip_mask = torch.randint(0, 2, (20,), dtype=torch.bool)
+    # random_rot[flip_mask] *= -1
+    # basis_change = ChangeOfLFrames(LFrames(random_rot[:10]), LFrames(random_rot[10:]))
 
     # test that 0n transforms correctly:
     irrep = ShiftReps("5x0")
-    coeffs = torch.randn(10, irrep.dim)
+    assert irrep.dim == 5
+    coeffs = torch.randn(num_nodes, irrep.dim)
     shift_reps_transform = ShiftRepsTransform(irrep)
     transformed_coeffs = shift_reps_transform(coeffs.clone(), lframes)
     assert torch.allclose(transformed_coeffs, coeffs)
 
     # test that 1n transforms correctly:
-    irrep = ShiftReps("5x1")
-    coeffs = torch.randn(10, irrep.dim)
+    mult = 5
+    irrep = ShiftReps(f"{mult}x1")
+    assert irrep.dim == mult * 4
+    coeffs = torch.randn(num_nodes, irrep.dim)
+    print("coeffs.shape", coeffs.shape, irrep.dim)
     shift_reps_transform = ShiftRepsTransform(irrep)
     transformed_coeffs = shift_reps_transform(coeffs.clone(), lframes)
 
+    print("coeffs.shape", coeffs.shape, transformed_coeffs.shape)
     print(coeffs - transformed_coeffs)
 
     # what I would expect the transformation to be:
+    manually_transformed_coeffs = coeffs.reshape(num_nodes, mult, 4)
+    print("random_rot.shape", random_rot.shape, manually_transformed_coeffs.shape)
+    manually_transformed_coeffs[..., :-1] = (
+        torch.einsum("kij, kmj -> kmi", random_rot, manually_transformed_coeffs[..., :-1])
+        - torch.einsum("kij, kj -> ki", random_rot, shift)[:, None, :]
+    )
+    print("manually_transformed_coeffs.shape", manually_transformed_coeffs.shape)
 
     assert torch.allclose(
-        transformed_coeffs.reshape(10, 5, 4),
-        torch.matmul(coeffs.reshape(10, 5, 4), basis_change.matrices.transpose(-1, -2)),
+        transformed_coeffs,
+        manually_transformed_coeffs.reshape(num_nodes, -1),
         atol=1e-7,
     )
+
+    # check that back and forth trafo yields the same as before:
 
     # # test that 1p transforms correctly:
     # irrep = ShiftReps("5x1p")

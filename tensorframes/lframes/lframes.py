@@ -34,10 +34,12 @@ class LFrames:
         ), "Rotations must be of shape (..., spatial_dim, spatial_dim)"
 
         self.matrices = matrices
-        self.shift = shift
+        self.shift = shift  # shift in global frame from origin to the lframe origin
         self.spatial_dim = spatial_dim
 
-        self._local_shift = None
+        self._local_shift = (
+            None  # shift from the global origin to the lframe origin in coordinates of the lframe
+        )
         self._det = None
         self._inv = None
         self._angles = None
@@ -54,9 +56,7 @@ class LFrames:
         """
         if self._local_shift is None:
             if self.shift is not None:
-                self._local_shift = -self.shift @ self.matrices.inv
-            else:
-                self._local_shift = None
+                self._local_shift = -torch.einsum("...ij,...j->...i", self.matrices, self.shift)
         return self._local_shift
 
     @property
@@ -169,6 +169,19 @@ class InvLFrames(LFrames):
         self._inv = None
         self._angles = None
         self._matrices = None
+        self._local_shift = None
+
+    @property
+    def local_shift(self) -> torch.Tensor:
+        """Local shift of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the local shifts.
+        """
+        if self._local_shift is None:
+            if self.lframes.shift is not None:
+                self._local_shift = self.lframes.shift
+        return self._local_shift
 
     @property
     def matrices(self) -> torch.Tensor:
@@ -267,6 +280,33 @@ class IndexSelectLFrames(LFrames):
         self._det = None
         self._inv = None
         self._angles = None
+
+        self._shift = None
+        self._local_shift = None
+
+    @property
+    def shift(self) -> torch.Tensor:
+        """Shift of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the shifts.
+        """
+        if self._shift is None:
+            if self.lframes.shift is not None:
+                self._shift = self.lframes.shift.index_select(0, self.indices)
+        return self._shift
+
+    @property
+    def local_shift(self) -> torch.Tensor:
+        """Local shift of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the local shifts.
+        """
+        if self._local_shift is None:
+            if self.lframes.local_shift is not None:
+                self._local_shift = self.lframes.local_shift.index_select(0, self.indices)
+        return self._local_shift
 
     @property
     def wigner_cache(self) -> dict:
@@ -375,11 +415,23 @@ class ChangeOfLFrames(LFrames):
         self._det = None
         self._inv = None
         self._angles = None
-        self.local_shift = None
-        if lframes_start.shift is not None and lframes_end.shift is not None:
-            self.local_shift = (
-                lframes_end.shift - lframes_start.shift
-            ) @ lframes_start.matrices.inv  # transpose since mult from right
+        self._local_shift = None
+
+    @property
+    def local_shift(self) -> torch.Tensor:
+        """Local shift of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the local shifts.
+        """
+        if self._local_shift is None:
+            if self.lframes_start.shift is not None and self.lframes_end.shift is not None:
+                self._local_shift = torch.einsum(
+                    "...ij,...j->...i",
+                    self.lframes_end.matrices,
+                    self.lframes_start.shift - self.lframes_end.shift,
+                )
+        return self._local_shift
 
     @property
     def det(self) -> torch.Tensor:

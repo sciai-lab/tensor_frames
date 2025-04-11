@@ -11,6 +11,11 @@ class ShiftReps(TensorReps):
     def __init__(self, tensor_reps, spatial_dim=3):
         super().__init__(tensor_reps, spatial_dim)
 
+        # increase the dim of any mulrep:
+        for mul_ir in self:
+            if mul_ir.rep.order > 0:
+                mul_ir._dim = mul_ir.dim + mul_ir.mul
+
     @property
     def dim(self) -> int:
         """
@@ -18,8 +23,8 @@ class ShiftReps(TensorReps):
         """
         if self._dim is None:
             self._dim = sum(
-                (self.spatial_dim + 1) ** mul_ir.rep.order for mul_ir in self
-            )  # just use one feature that is overwritten
+                mul_ir.mul * (self.spatial_dim + 1) ** mul_ir.rep.order for mul_ir in self
+            )
         return self._dim
 
     def get_transform_class(self, use_parallel: bool = True, avoid_einsum: bool = False):
@@ -39,13 +44,13 @@ class ShiftRepsTransform(TensorRepsTransform):
     """A module for transforming tensor representations.
 
     Args:
-        tensor_reps (TensorReps): The tensor representations to be transformed.
+        tensor_reps (ShiftReps): The tensor representations to be transformed.
         use_parallel (bool, optional): Whether to use parallel computation for the transformation. Defaults to True.
         avoid_einsum (bool, optional): Whether to avoid using `torch.einsum` for the transformation. Defaults to False.
     """
 
     def __init__(
-        self, tensor_reps: TensorReps, use_parallel: bool = True, avoid_einsum: bool = False
+        self, shift_reps: ShiftReps, use_parallel: bool = True, avoid_einsum: bool = False
     ):
         """Initialize a shifting TensorReps transform object.
 
@@ -54,7 +59,7 @@ class ShiftRepsTransform(TensorRepsTransform):
             use_parallel (bool, optional): Whether to use parallel computation. Defaults to True.
             avoid_einsum (bool, optional): Whether to avoid using einsum. Defaults to False.
         """
-        super().__init__(tensor_reps, use_parallel, avoid_einsum)
+        super().__init__(shift_reps, use_parallel, avoid_einsum)
 
     def transform_coeffs_parallel(
         self,
@@ -93,7 +98,7 @@ class ShiftRepsTransform(TensorRepsTransform):
         trafo_matrices[:, -1, -1] = 1.0
 
         assert basis_change.shift is not None, "Shift must be provided for shift reps trafo"
-        trafo_matrices[:, -1, :-1] = basis_change.local_shift
+        trafo_matrices[:, :-1, -1] = basis_change.local_shift
 
         trafo_matrices_t = trafo_matrices.transpose(-1, -2)
 
@@ -196,7 +201,7 @@ class ShiftRepsTransform(TensorRepsTransform):
         )
         trafo_matrices[:, :-1, :-1] = basis_change.matrices
         trafo_matrices[:, -1, -1] = 1.0
-        trafo_matrices[:, -1, :-1] = basis_change.local_shift
+        trafo_matrices[:, :-1, -1] = basis_change.local_shift
 
         current_index = 0
         length = 0
@@ -227,7 +232,7 @@ class ShiftRepsTransform(TensorRepsTransform):
             einsum_str = self._get_einsum_string(rep_n)
 
             tensor = coeffs[:, left_index:right_index].reshape(
-                coeffs.shape[0], mul, *([self.spatial_dim + 1] * rep_n)
+                coeffs.shape[0], mul, *([self.spatial_dim] * rep_n)
             )
 
             # overwrite the last entry of the last dimension with the shift

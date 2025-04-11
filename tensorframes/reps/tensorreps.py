@@ -78,7 +78,7 @@ class TensorRep(Tuple):
 class _TensorMulRep(Tuple):
     """Represents a tensor multiplication with a corresponding tensor representation."""
 
-    def __new__(cls, mul, rep=None):
+    def __new__(cls, mul, rep=None, spatial_dim=3):
         """Initializes a new _TensorMulRep object.
 
         Args:
@@ -114,14 +114,21 @@ class _TensorMulRep(Tuple):
         """
         int: The dimension of the tensor multiplication.
         """
-        if self.rep.order == 0:
-            return 1 * self.mul
-        else:
-            return (3**self.rep.order) * self.mul
+        if self._dim is None:
+            if self.rep.order == 0:
+                self._dim = 1 * self.mul
+            else:
+                self._dim = (self.spatial_dim**self.rep.order) * self.mul
+        return self._dim
 
     # to be checked how exactly the memo thing works
     # def __deepcopy__(self, memodict={}):
     #     return _TensorMulRep(self.mul, self.rep)
+
+    def __init__(self, mul, rep=None, spatial_dim=3) -> None:
+        super().__init__()
+        self.spatial_dim = spatial_dim
+        self._dim = None
 
     def __repr__(self):
         """
@@ -166,7 +173,9 @@ class TensorReps(Tuple, Reps):
                     mul, order = tensor_reps_list[i].split("x")
                     mul = int(mul)
                     order = int(order)
-                    out.append(_TensorMulRep(mul, TensorRep(order, p)))
+                    out.append(
+                        _TensorMulRep(mul=mul, rep=TensorRep(order, p), spatial_dim=spatial_dim)
+                    )
                     tensor_rep = super().__new__(cls, out)
 
             except Exception:
@@ -188,7 +197,7 @@ class TensorReps(Tuple, Reps):
                 if not isinstance(mul, int):
                     raise ValueError("Can't parse tensor_reps")
 
-                out.append(_TensorMulRep(mul, rep))
+                out.append(_TensorMulRep(mul=mul, rep=rep, spatial_dim=spatial_dim))
             tensor_rep = super().__new__(cls, out)
 
         return tensor_rep
@@ -328,11 +337,19 @@ class TensorRepsTransform(Module):
         self.spatial_dim = tensor_reps.spatial_dim
 
         # prepare for fast transform
+        self.prepare_for_fast_transform()
+
+    def prepare_for_fast_transform(self):
+        # initialize a dict which holds the order n as key and a list of start indices as value
         n_start_index_dict = {n: [] for n in range(0, self.tensor_reps.max_rep.rep.order + 1)}
-        pseudo_mask = torch.zeros(self.tensor_reps.dim, dtype=bool)
+        pseudo_mask = torch.zeros(
+            self.tensor_reps.dim, dtype=bool
+        )  # holding where one uses a pseudo tensor
         start_idx = 0
         for i, mul_reps in enumerate(self.tensor_reps):
-            n_start_index_dict[mul_reps.rep.order].append((start_idx, i))
+            n_start_index_dict[mul_reps.rep.order].append(
+                (start_idx, i)
+            )  # the i marks the rep index
 
             # prepare parity mask:
             if mul_reps[1].p == -1:
@@ -340,10 +357,16 @@ class TensorRepsTransform(Module):
 
             start_idx += mul_reps.dim
 
-        # sort start indices and reps by angular momentum largest first, n_masks can also be precomputed
+        # remove empty entries:
+        for n in list(n_start_index_dict.keys()):
+            if len(n_start_index_dict[n]) == 0:
+                del n_start_index_dict[n]
+
+        # get all ns and sort them in descending order:
         self.sorted_n = sorted(n_start_index_dict.keys(), reverse=True)
         self.is_sorted = self.tensor_reps.is_sorted
 
+        # sort start indices and reps by angular momentum largest first, n_masks can also be precomputed
         self.n_masks = []
         self.n_muls = []
         self.start_end_indices = []
@@ -365,10 +388,13 @@ class TensorRepsTransform(Module):
             else:
                 self.n_muls.append(mul_per_n)
                 self.n_masks.append(n_mask)
-                self.start_end_indices.append((n_start_idx, n_end_idx))
+                self.start_end_indices.append(
+                    (n_start_idx, n_end_idx)
+                )  # only works if sorted, otherwise there could be other reps in between
 
         # remove scalars from l_sorted:
-        self.sorted_n.remove(0)
+        if 0 in self.sorted_n:
+            self.sorted_n.remove(0)
         pseudo_tensor = torch.where(
             pseudo_mask, -torch.ones(self.tensor_reps.dim), torch.ones(self.tensor_reps.dim)
         ).float()
