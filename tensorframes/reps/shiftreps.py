@@ -8,8 +8,8 @@ from tensorframes.reps.tensorreps import TensorReps, TensorRepsTransform
 class ShiftReps(TensorReps):
     """Represents a collection of shifting tensor representations."""
 
-    def __init__(self, tensor_reps, spatial_dim=3):
-        super().__init__(tensor_reps, spatial_dim)
+    def __init__(self, shift_reps, spatial_dim=3):
+        super().__init__(shift_reps, spatial_dim)
 
         # increase the dim of any mulrep:
         for mul_ir in self:
@@ -26,6 +26,10 @@ class ShiftReps(TensorReps):
                 mul_ir.mul * (self.spatial_dim + 1) ** mul_ir.rep.order for mul_ir in self
             )
         return self._dim
+
+    def __add__(self, shift_reps):
+        shift_reps = ShiftReps(shift_reps)
+        return ShiftReps(super().__add__(shift_reps), spatial_dim=self.spatial_dim)
 
     def get_transform_class(self, use_parallel: bool = True, avoid_einsum: bool = False):
         """Returns the tensor reps transform class.
@@ -178,13 +182,14 @@ class ShiftRepsTransform(TensorRepsTransform):
                 smaller_tensor = output_coeffs[:, start_idx:end_idx].view(
                     N, -1, *(l * (self.spatial_dim + 1,))
                 )
+                smaller_tensor[..., *(l * (-1,))] = additional_scalar
             else:
                 n_mask = self.n_masks[i]
-                smaller_tensor = output_coeffs[:, n_mask].view(
-                    N, -1, *(l * (self.spatial_dim + 1,))
-                )
-
-            smaller_tensor[..., *(l * (-1,))] = additional_scalar
+                mask_indices = torch.nonzero(n_mask, as_tuple=False).squeeze(-1)
+                mask_indices = mask_indices.view(-1, *(l * (self.spatial_dim + 1,)))
+                # get the scalar indices
+                scalar_indeces = mask_indices[..., *(l * (-1,))].flatten()
+                output_coeffs[:, scalar_indeces] = additional_scalar
 
         # # apply parity:
         # # get the determinants of the rotation matrices:

@@ -271,7 +271,7 @@ class TensorReps(Tuple, Reps):
         """
 
         tensor_reps = TensorReps(tensor_reps)
-        return TensorReps(super().__add__(tensor_reps))
+        return TensorReps(super().__add__(tensor_reps), spatial_dim=self.spatial_dim)
 
     def simplify(self) -> "TensorReps":
         """Simplifies the tensor reps by combining the same reps.
