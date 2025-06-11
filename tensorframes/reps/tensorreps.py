@@ -357,11 +357,6 @@ class TensorRepsTransform(Module):
 
             start_idx += mul_reps.dim
 
-        # remove empty entries:
-        for n in list(n_start_index_dict.keys()):
-            if len(n_start_index_dict[n]) == 0:
-                del n_start_index_dict[n]
-
         # get all ns and sort them in descending order:
         self.sorted_n = sorted(n_start_index_dict.keys(), reverse=True)
         self.is_sorted = self.tensor_reps.is_sorted

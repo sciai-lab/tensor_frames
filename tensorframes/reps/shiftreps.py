@@ -14,7 +14,7 @@ class ShiftReps(TensorReps):
         # increase the dim of any mulrep:
         for mul_ir in self:
             if mul_ir.rep.order > 0:
-                mul_ir._dim = mul_ir.dim + mul_ir.mul
+                mul_ir._dim = mul_ir.mul * (self.spatial_dim + 1) ** mul_ir.rep.order
 
     @property
     def dim(self) -> int:
@@ -66,7 +66,6 @@ class ShiftRepsTransform(TensorRepsTransform):
         coeffs: Tensor,
         basis_change: LFrames,
         avoid_einsum: bool = False,
-        inplace: bool = False,
     ) -> Tensor:
         """Transforms the coefficients using more parallel computation.
 
@@ -97,17 +96,16 @@ class ShiftRepsTransform(TensorRepsTransform):
         trafo_matrices[:, :-1, :-1] = basis_change.matrices
         trafo_matrices[:, -1, -1] = 1.0
 
-        assert basis_change.shift is not None, "Shift must be provided for shift reps trafo"
+        assert basis_change.local_shift is not None, "Shift must be provided for shift reps trafo"
         trafo_matrices[:, :-1, -1] = basis_change.local_shift
 
         trafo_matrices_t = trafo_matrices.transpose(-1, -2)
 
-        if inplace:
-            output_coeffs = coeffs
-        else:
-            output_coeffs = coeffs.clone()
+        output_coeffs = coeffs.clone()
+        coeffs = coeffs.clone()
 
         largest_tensor = torch.tensor([], device=coeffs.device)
+        additional_scalar_dict = {}
         for i, l in enumerate(self.sorted_n):
             if self.is_sorted:
                 start_idx, end_idx = self.start_end_indices[i]
@@ -117,6 +115,14 @@ class ShiftRepsTransform(TensorRepsTransform):
             else:
                 n_mask = self.n_masks[i]
                 smaller_tensor = coeffs[:, n_mask].view(N, -1, *(l * (self.spatial_dim + 1,)))
+
+            additional_scalar = smaller_tensor[
+                ..., *(l * (-1,))
+            ].clone()  # last entry of the last dimension
+            smaller_tensor[
+                ..., *(l * (-1,))
+            ] = 1.0  # overwrite the last entry of the last dimension with the shift
+            additional_scalar_dict[i] = additional_scalar
 
             if i == 0:
                 # highest n
@@ -133,26 +139,12 @@ class ShiftRepsTransform(TensorRepsTransform):
 
                 # overwrite the last entry of the last dimension with the shift
                 largest_tensor = largest_tensor.reshape(N, -1, self.spatial_dim + 1)
-                additional_scalar = largest_tensor[:, :, -1].clone()
-                largest_tensor[:, :, -1] = 1.0
-
                 largest_tensor = torch.matmul(largest_tensor, trafo_matrices_t)
-
-                # reinsert again the additional scalar
-                largest_tensor[:, :, -1] = additional_scalar
 
                 largest_tensor = largest_tensor.reshape(*largest_shape)
                 largest_tensor = largest_tensor.moveaxis(-1, 2)
             else:
-                print(trafo_matrices.shape, largest_tensor.shape)
-
-                additional_scalar = largest_tensor[..., -1].clone()
-                largest_tensor[..., -1] = 1.0
-
                 largest_tensor = torch.einsum("ijk,ilk...->ilj...", trafo_matrices, largest_tensor)
-
-                # reinsert again the additional scalar
-                largest_tensor[..., -1] = additional_scalar
 
             # no need to transform again along this axis so flatten it for now into channels:
             largest_tensor = largest_tensor.flatten(start_dim=1, end_dim=2)
@@ -171,9 +163,28 @@ class ShiftRepsTransform(TensorRepsTransform):
                 # this could be faster if things where sorted. then largest would just be coeffs
                 n_mask = n_mask_rev[i]
                 l_mul = n_muls_rev[i]
-                smaller_tensor = largest_tensor[:, : l_mul * 3**n]
+                smaller_tensor = largest_tensor[:, : l_mul * (self.spatial_dim + 1) ** n]
                 output_coeffs[:, n_mask] = smaller_tensor
-                largest_tensor = largest_tensor[:, l_mul * 3**n :]
+                largest_tensor = largest_tensor[:, l_mul * (self.spatial_dim + 1) ** n :]
+
+        # reinsert all additional scalars:
+        for i, additional_scalar in additional_scalar_dict.items():
+            l = self.sorted_n[i]
+            if l == 0:
+                continue
+            # reinsert the additional scalar at the last entry of the last dimension
+            if self.is_sorted:
+                start_idx, end_idx = self.start_end_indices[i]
+                smaller_tensor = output_coeffs[:, start_idx:end_idx].view(
+                    N, -1, *(l * (self.spatial_dim + 1,))
+                )
+            else:
+                n_mask = self.n_masks[i]
+                smaller_tensor = output_coeffs[:, n_mask].view(
+                    N, -1, *(l * (self.spatial_dim + 1,))
+                )
+
+            smaller_tensor[..., *(l * (-1,))] = additional_scalar
 
         # # apply parity:
         # # get the determinants of the rotation matrices:
@@ -206,6 +217,7 @@ class ShiftRepsTransform(TensorRepsTransform):
         current_index = 0
         length = 0
 
+        coeffs = coeffs.clone()
         output = torch.zeros_like(coeffs)
 
         for mul_reps in self.tensor_reps:
@@ -232,7 +244,7 @@ class ShiftRepsTransform(TensorRepsTransform):
             einsum_str = self._get_einsum_string(rep_n)
 
             tensor = coeffs[:, left_index:right_index].reshape(
-                coeffs.shape[0], mul, *([self.spatial_dim] * rep_n)
+                coeffs.shape[0], mul, *([self.spatial_dim + 1] * rep_n)
             )
 
             # overwrite the last entry of the last dimension with the shift
@@ -264,7 +276,6 @@ class ShiftRepsTransform(TensorRepsTransform):
         self,
         coeffs: Tensor | None,
         basis_change: LFrames,
-        inplace: bool = False,
         shift: Tensor | None = None,
     ) -> Tensor:
         """Applies the forward transformation to the input coefficients.
@@ -283,8 +294,6 @@ class ShiftRepsTransform(TensorRepsTransform):
             return None
 
         if self.use_parallel:
-            return self.transform_coeffs_parallel(
-                coeffs, basis_change, self.avoid_einsum, inplace=inplace
-            )
+            return self.transform_coeffs_parallel(coeffs, basis_change, self.avoid_einsum)
         else:
-            return self.transform_coeffs(coeffs, basis_change, shift=shift)
+            return self.transform_coeffs(coeffs, basis_change)
