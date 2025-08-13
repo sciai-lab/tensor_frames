@@ -7,22 +7,7 @@ from torch.nn import Module
 from torch_geometric.typing import PairTensor
 
 from tensorframes.lframes import LFrames
-
-
-def double_gradient_safe_norm(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
-    """Needed when edge_vec contains zero vectors and when differentiating twice."""
-    non_zero_mask = edge_vec.abs().sum(dim=-1) > eps
-    norm = torch.zeros(edge_vec.shape[0], 1, device=edge_vec.device)
-    norm[non_zero_mask] = torch.linalg.norm(edge_vec[non_zero_mask], dim=-1, keepdim=True)
-    return norm
-
-
-def double_gradient_safe_normalize(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
-    """Needed when edge_vec contains zero vectors and when differentiating twice."""
-    non_zero_mask = edge_vec.abs().sum(dim=-1) > eps
-    norm = torch.linalg.norm(edge_vec[non_zero_mask], dim=-1, keepdim=True)
-    edge_vec[non_zero_mask] = edge_vec[non_zero_mask] / norm
-    return edge_vec
+from tensorframes.lframes.gram_schmidt import double_gradient_safe_norm
 
 
 def compute_edge_vec(

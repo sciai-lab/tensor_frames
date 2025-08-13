@@ -4,6 +4,21 @@ from typing import Union
 import torch
 from torch import Tensor
 
+def double_gradient_safe_norm(x: Tensor, eps: float = 1e-6) -> Tensor:
+    """Needed when edge_vec contains zero vectors and when differentiating twice."""
+    non_zero_mask = x.abs().sum(dim=-1) > eps
+    norm = torch.zeros(x.shape[0], 1, device=x.device, dtype=x.dtype)
+    norm[non_zero_mask] = torch.linalg.norm(x[non_zero_mask], dim=-1, keepdim=True)
+    return norm
+
+
+def double_gradient_safe_normalize(x: Tensor, eps: float = 1e-6) -> Tensor:
+    """Needed when edge_vec contains zero vectors and when differentiating twice."""
+    non_zero_mask = x.abs().sum(dim=-1) > eps
+    norm = torch.linalg.norm(x[non_zero_mask], dim=-1, keepdim=True)
+    x[non_zero_mask] = x[non_zero_mask] / norm
+    return x
+
 
 def symmetric_non_small_noise_like(x: Tensor, eps: float = 1e-6, scale: float = 1) -> Tensor:
     """Generates a tensor of random noise with symmetric values that are not too small.
@@ -37,7 +52,7 @@ def check_for_zero_length(
     Returns:
         Tensor: The output tensor with zero length vectors replaced.
     """
-    x_length = torch.linalg.norm(x, dim=-1, keepdim=True)
+    x_length = double_gradient_safe_norm(x, eps=eps)
 
     x_zero_mask = (x_length < eps).squeeze()
     if torch.any(x_zero_mask):
