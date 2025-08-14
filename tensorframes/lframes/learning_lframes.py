@@ -8,7 +8,7 @@ from torch_geometric.nn import MessagePassing, radius
 from torch_geometric.typing import PairTensor
 
 from tensorframes.lframes.classical_lframes import LFramesPredictionModule
-from tensorframes.lframes.gram_schmidt import double_cross_orthogonalize, gram_schmidt
+from tensorframes.lframes.gram_schmidt import double_cross_orthogonalize, gram_schmidt, double_gradient_safe_norm
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import RadialEmbedding
 from tensorframes.nn.envelope import EnvelopePoly
@@ -245,8 +245,8 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         mlp_out = self.mlp(x=inp, batch=None if batch_j is None else batch_j.flatten())
 
         relative_vec = pos_j - pos_i
-        relative_norm = torch.clamp(torch.linalg.norm(relative_vec, dim=-1, keepdim=True), self.eps)
-        relative_vec = relative_vec / relative_norm
+        relative_norm = double_gradient_safe_norm(relative_vec, eps=self.eps)
+        relative_vec = relative_vec / torch.clamp(relative_norm, min=self.eps)
 
         out = torch.einsum("ij,ik->ijk", mlp_out, relative_vec).reshape(-1, self.num_pred_vecs * 3)
 
