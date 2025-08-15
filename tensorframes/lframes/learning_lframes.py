@@ -35,6 +35,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         fix_gravitational_axis: bool = False,
         gravitational_axis_index: int = 1,
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
+        normalize_relative_vec: bool = True,
         use_double_cross_product: bool = False,
         **mlp_kwargs: dict,
     ) -> None:
@@ -53,6 +54,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
             fix_gravitational_axis (bool, optional): Whether to fix the gravitational axis. Defaults to False.
             gravitational_axis_index (int, optional): The index of the gravitational axis. Defaults to 1.
             envelope (Union[torch.nn.Module, None], optional): The envelope module. Defaults to EnvelopePoly(5).
+            normalize_relative_vec (bool, optional): Whether to normalize the relative vectors. Defaults to True.
             use_double_cross_product (bool, optional): Whether to use the double cross product method to compute the third vector. Defaults to False.
             **mlp_kwargs (dict): Additional keyword arguments for the MLP.
         """
@@ -98,6 +100,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         self.concat_receiver = concat_receiver
         self.exceptional_choice = exceptional_choice
         self.use_double_cross_product = use_double_cross_product
+        self.normalize_relative_vec = normalize_relative_vec
 
         if self.cutoff is not None:
             self.envelope = envelope
@@ -242,7 +245,8 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
 
         relative_vec = pos_j - pos_i
         relative_norm = torch.clamp(torch.linalg.norm(relative_vec, dim=-1, keepdim=True), 1e-6)
-        relative_vec = relative_vec / relative_norm
+        if self.normalize_relative_vec:
+            relative_vec = relative_vec / relative_norm
 
         out = torch.einsum("ij,ik->ijk", mlp_out, relative_vec).reshape(-1, self.num_pred_vecs * 3)
 
