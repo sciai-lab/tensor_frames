@@ -9,8 +9,8 @@ from torch_geometric.typing import PairTensor
 from tensorframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import (
     compute_edge_vec,
-    double_gradient_safe_normalize,
 )
+from tensorframes.lframes.gram_schmidt import double_gradient_safe_normalize
 
 
 class AngularEmbedding(torch.nn.Module):
