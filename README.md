@@ -10,7 +10,7 @@
 
 ## Description
 
-The `tensorframes` package implements the message passing class described in the paper https://arxiv.org/abs/2405.15389v1. This class generalizes the typical message passing algorithm by transforming features from one node's local frame to another node's frame. This transformation results in an $O(N)$ invariant layer, which can be used to construct fully equivariant architectures:
+The `tensorframes` package implements the message passing class described in the paper TODO This class generalizes the typical message passing algorithm by transforming features from one node's local frame to another node's frame. This transformation results in an $O(N)$ invariant layer, which can be used to construct fully equivariant architectures:
 
 $$
 f_i^{(k)}=\\psi^{(k)}\\bigg( f_i^{(k-1)}, \\bigoplus\_{j\\in\\mathcal{N}}\\phi^{(k)}\\left(f_i^{(k-1)},\\rho(g_i g_j^{-1})f_j^{(k-1)}, \\rho_e(g_i)e\_{ji}, R_i(\\mathbf x_i - \\mathbf x_j)\\right) \\bigg)
@@ -23,8 +23,8 @@ The `TFMessagePassing` class is introduced to efficiently implement these layers
 The whole transformations are abstracted away by the `TFMessagePassing` class, where every parameter is transformed into the right frame. A simple GCNConv-like module could look the following:
 
 ```python
-from tensorframes.nn.tfmessage_passing import TFMessagePassing
-from tensorframes.reps.tensorreps import TensorReps
+from tensor_frames.nn.tfmessage_passing import TFMessagePassing
+from tensor_frames.reps.tensorreps import TensorReps
 
 class GCNConv(TFMessagePassing):
     def __init__(self, in_reps: TensorReps, out_reps: TensorReps):
@@ -48,23 +48,16 @@ Here the feature `x_j` is automatically transformed into the local frame of node
 
 ## Installation
 
-#### Clone Project
-
-```bash
-git clone https://github.com/sciai-lab/tensorframes
-cd tensorframes
-```
-
 #### Install using Conda/Mamba/Micromamba
 
 For mamba or micromamba replace `conda` with `mamba` or `micromamba` below. (Micromamba is recommended)
 
 ```bash
 # create conda environment and install dependencies
-conda env create -f environment.yaml -n tensorframes
+conda env create -f environment.yaml -n tensor_frames
 
 # activate conda environment
-conda activate tensorframes
+conda activate tensor_frames
 
 # install as an editable package (params are used because of vscode autofill)
 pip install -e . --config-settings editable_mode=strict
