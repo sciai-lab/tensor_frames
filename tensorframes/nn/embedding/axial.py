@@ -8,9 +8,9 @@ from torch import Tensor
 from tensorframes.nn.embedding.angular import AngularEmbedding
 from tensorframes.nn.embedding.radial import (
     RadialEmbedding,
-    double_gradient_safe_normalize,
     get_gaussian_width,
 )
+from tensorframes.lframes.gram_schmidt import double_gradient_safe_normalize
 
 
 class AxisWiseEmbeddingFromRadial(AngularEmbedding):

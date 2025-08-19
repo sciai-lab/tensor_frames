@@ -5,7 +5,8 @@ import torch
 # Borrowed from e3nn @ 0.4.0:
 # https://github.com/e3nn/e3nn/blob/0.4.0/e3nn/o3/_wigner.py#L10
 # _Jd is a list of tensors of shape (2l+1, 2l+1)
-_Jd = torch.load(os.path.join(os.path.dirname(__file__), "Jd.pt"))
+# We don't load during import time since this causes problems with pytorch lightnings checkpoint loading
+_Jd = None
 
 
 # Borrowed from e3nn @ 0.4.0:
@@ -186,6 +187,10 @@ def wigner_D(l: int, alpha: torch.Tensor, beta: torch.Tensor, gamma: torch.Tenso
     .. note::
         The Euler angles are in the yxy convention. But in the paper and other theoretical works one uses the zyz convention. E3nn is special in that regard.
     """
+    global _Jd
+    if _Jd is None:
+        _Jd = torch.load(os.path.join(os.path.dirname(__file__), "Jd.pt"), weights_only=True)
+
     if _Jd[l].dtype != alpha.dtype:
         _Jd[l] = _Jd[l].to(dtype=alpha.dtype)
 

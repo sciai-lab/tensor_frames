@@ -8,7 +8,7 @@ from torch_geometric.nn import MessagePassing, radius
 from torch_geometric.typing import PairTensor
 
 from tensorframes.lframes.classical_lframes import LFramesPredictionModule
-from tensorframes.lframes.gram_schmidt import double_cross_orthogonalize, gram_schmidt
+from tensorframes.lframes.gram_schmidt import double_cross_orthogonalize, gram_schmidt, double_gradient_safe_norm
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import RadialEmbedding
 from tensorframes.nn.envelope import EnvelopePoly
@@ -36,6 +36,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         gravitational_axis_index: int = 1,
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
         use_double_cross_product: bool = False,
+        eps: float = 1e-6,
         **mlp_kwargs: dict,
     ) -> None:
         """Initialize the LearnedGramSchmidtLFrames model.
@@ -57,6 +58,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
             **mlp_kwargs (dict): Additional keyword arguments for the MLP.
         """
         super().__init__()
+        self.eps = eps
         self.even_scalar_input_dim = even_scalar_input_dim
         self.radial_dim = radial_dim
 
@@ -170,7 +172,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
 
             if self.use_double_cross_product:
                 local_frames = double_cross_orthogonalize(
-                    vec1, vec2, vec3, exceptional_choice=self.exceptional_choice
+                    vec1, vec2, vec3, exceptional_choice=self.exceptional_choice, eps=self.eps
                 )
             else:
                 local_frames = gram_schmidt(
@@ -178,6 +180,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
                     vec2,
                     vec3,
                     exceptional_choice=self.exceptional_choice,
+                    eps=self.eps,
                 )
         else:
             if self.gravitational_axis is None:
@@ -189,13 +192,14 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
 
             if self.use_double_cross_product:
                 local_frames = double_cross_orthogonalize(
-                    vec1, vec2, exceptional_choice=self.exceptional_choice
+                    vec1, vec2, exceptional_choice=self.exceptional_choice, eps=self.eps
                 )
             else:
                 local_frames = gram_schmidt(
                     vec1,
                     vec2,
                     exceptional_choice=self.exceptional_choice,
+                    eps=self.eps,
                 )
 
         # permute the axes to be at the correct index position:
@@ -241,8 +245,8 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         mlp_out = self.mlp(x=inp, batch=None if batch_j is None else batch_j.flatten())
 
         relative_vec = pos_j - pos_i
-        relative_norm = torch.clamp(torch.linalg.norm(relative_vec, dim=-1, keepdim=True), 1e-6)
-        relative_vec = relative_vec / relative_norm
+        relative_norm = double_gradient_safe_norm(relative_vec, eps=self.eps)
+        relative_vec = relative_vec / torch.clamp(relative_norm, min=self.eps)
 
         out = torch.einsum("ij,ik->ijk", mlp_out, relative_vec).reshape(-1, self.num_pred_vecs * 3)
 
@@ -262,7 +266,7 @@ class LearnedGramSchmidtLFrames(MessagePassing, LFramesPredictionModule):
         return out
 
 
-class WrappedLearnedLFrames(Module):
+class WrappedLearnedLFrames(torch.nn.Module):
     """The WrappedLearnedLocalFramesModule is a wrapper around the LearnedGramSchmidtLFrames
     module."""
 
@@ -274,6 +278,7 @@ class WrappedLearnedLFrames(Module):
         max_radius: Union[float, None] = None,
         edge_attr_tensor_reps: Union[TensorReps, Irreps, None] = None,
         max_num_neighbors: int = 64,
+        transform_into_lframes: bool = True,
         **kwargs,
     ) -> None:
         """Initializes the WrappedLearnedLocalFramesModule.
@@ -317,7 +322,10 @@ class WrappedLearnedLFrames(Module):
             **kwargs,
         )
 
-        self.transform_class = self.in_reps.get_transform_class()
+        if transform_into_lframes:
+            self.transform_class = self.in_reps.get_transform_class()
+        else:
+            self.transform_class = None
 
     def forward(
         self,
@@ -374,6 +382,8 @@ class WrappedLearnedLFrames(Module):
         )
 
         # transform the features from the global frame into the new local frame:
-        x_transformed = self.transform_class(x[1], lframes)
-
-        return x_transformed, lframes
+        if self.transform_class is None:
+            return lframes
+        else:
+            x_transformed = self.transform_class(x[1], lframes)
+            return x_transformed, lframes
