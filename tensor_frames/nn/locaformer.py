@@ -15,7 +15,7 @@ from tensor_frames.reps.reps import Reps
 
 
 class LoCaFormer(TFMessagePassing):
-    """The TensorFormer model.
+    """The LoCaFormer model.
 
     TODO: insert arxiv paper reference if we have one.
     """
@@ -41,7 +41,7 @@ class LoCaFormer(TFMessagePassing):
         bias: bool = True,
         layer_norm_mode: str = "graph",
     ) -> None:
-        """Initialize the TensorFormer model.
+        """Initialize the LoCaFormer model.
 
         Args:
             tensor_reps (Reps): The representation of the features. Is the same for input and output features, because of the skip connection.
@@ -147,7 +147,7 @@ class LoCaFormer(TFMessagePassing):
         edge_embedding: Tensor,
         batch: Union[Tensor, None] = None,
     ):
-        """Forward pass of the TensorFormer module. TODO: insert arxiv paper reference if we have
+        """Forward pass of the LoCaFormer module. TODO: insert arxiv paper reference if we have
         one.
 
         Args:
@@ -207,7 +207,7 @@ class LoCaFormer(TFMessagePassing):
         edge_embedding: Tensor,
         batch_i: Union[Tensor, None] = None,
     ):
-        """Calculates the message passing operation for the Tensorformer model.
+        """Calculates the message passing operation for the LoCaFormer model.
 
         Args:
             x_i (Tensor): Input tensor for node i.
