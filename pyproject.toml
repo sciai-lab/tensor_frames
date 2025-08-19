@@ -1,11 +1,8 @@
 [project]
-name = 'tensorframes'
+name = 'tensor_frames'
 requires-python = ">=3.11"
 version = "1.0.0"
-authors = [
-    {name = "Gerrit Gerhartz", email = "gerrit.gerhartz@gmail.com"},
-    {name = "Peter Lippmann", email = "peter.lippmann@iwr.uni-heidelberg.de"},
-]
+authors = []
 
 [tool.setuptools.package-data]
 "tensorframes.utils" = ["Jd.pt"]

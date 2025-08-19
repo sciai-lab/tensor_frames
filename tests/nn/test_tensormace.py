@@ -1,9 +1,9 @@
 import torch
 
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.nn.tensormace import TensorMACE
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensor_frames.lframes.lframes import LFrames
+from tensor_frames.nn.tensormace import TensorMACE
+from tensor_frames.reps.irreps import Irreps
+from tensor_frames.reps.tensorreps import TensorReps
 
 
 def test_tensormace_init_and_forward():

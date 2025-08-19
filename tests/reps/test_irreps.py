@@ -1,10 +1,10 @@
 import torch
 from e3nn import o3
 
-from tensorframes.lframes.classical_lframes import RandomLFrames
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.reps.irreps import Irreps, IrrepsTransform
-from tensorframes.reps.tensorreps import TensorReps
+from tensor_frames.lframes.classical_lframes import RandomLFrames
+from tensor_frames.lframes.lframes import LFrames
+from tensor_frames.reps.irreps import Irreps, IrrepsTransform
+from tensor_frames.reps.tensorreps import TensorReps
 
 
 def test_irreps():

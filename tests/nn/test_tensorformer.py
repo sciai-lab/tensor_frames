@@ -1,9 +1,9 @@
 import e3nn
 import torch
 
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.nn.tensorformer import TensorFormer
-from tensorframes.reps.tensorreps import TensorReps
+from tensor_frames.lframes.lframes import LFrames
+from tensor_frames.nn.locaformer import TensorFormer
+from tensor_frames.reps.tensorreps import TensorReps
 
 
 def test_tensorformer_init_and_forward():

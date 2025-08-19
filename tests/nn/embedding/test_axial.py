@@ -1,13 +1,13 @@
 import torch
 from e3nn.o3 import rand_matrix
 
-from tensorframes.lframes import LFrames
-from tensorframes.nn.embedding.axial import (
+from tensor_frames.lframes import LFrames
+from tensor_frames.nn.embedding.axial import (
     AxisWiseBesselEmbedding,
     AxisWiseEmbeddingFromRadial,
     AxisWiseGaussianEmbedding,
 )
-from tensorframes.nn.embedding.radial import (
+from tensor_frames.nn.embedding.radial import (
     BesselEmbedding,
     GaussianEmbedding,
     compute_edge_vec,

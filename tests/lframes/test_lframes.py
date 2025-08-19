@@ -1,7 +1,7 @@
 import torch
 
-from tensorframes.lframes.classical_lframes import RandomLFrames
-from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
+from tensor_frames.lframes.classical_lframes import RandomLFrames
+from tensor_frames.lframes.lframes import ChangeOfLFrames, LFrames
 
 
 def test_lframes():

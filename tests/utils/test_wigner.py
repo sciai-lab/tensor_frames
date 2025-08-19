@@ -1,7 +1,7 @@
 import torch
 from e3nn.o3 import matrix_to_angles, rand_matrix
 
-from tensorframes.utils.wigner import (
+from tensor_frames.utils.wigner import (
     euler_angle_inversion,
     euler_angles_yxy,
     wigner_D_from_matrix,

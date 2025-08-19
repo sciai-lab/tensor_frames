@@ -1,8 +1,8 @@
 import torch
 from e3nn.o3 import rand_matrix
 
-from tensorframes.lframes import LFrames
-from tensorframes.nn.embedding.angular import (
+from tensor_frames.lframes import LFrames
+from tensor_frames.nn.embedding.angular import (
     SphericalHarmonicsEmbedding,
     TrivialAngularEmbedding,
     compute_edge_vec,

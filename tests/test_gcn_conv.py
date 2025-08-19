@@ -1,9 +1,9 @@
 import torch
 
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.nn.gcn_conv import GCNConv
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensor_frames.lframes.lframes import LFrames
+from tensor_frames.nn.gcn_conv import GCNConv
+from tensor_frames.reps.irreps import Irreps
+from tensor_frames.reps.tensorreps import TensorReps
 
 
 def test_gcn_conv_layer():

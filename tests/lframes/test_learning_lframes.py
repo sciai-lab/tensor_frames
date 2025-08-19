@@ -1,10 +1,10 @@
 import torch
 
-from tensorframes.lframes.classical_lframes import RandomGlobalLFrames
-from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
-from tensorframes.nn.embedding.radial import TrivialRadialEmbedding
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensor_frames.lframes.classical_lframes import RandomGlobalLFrames
+from tensor_frames.lframes.learning_lframes import WrappedLearnedLFrames
+from tensor_frames.nn.embedding.radial import TrivialRadialEmbedding
+from tensor_frames.reps.irreps import Irreps
+from tensor_frames.reps.tensorreps import TensorReps
 
 
 def test_wrapped_learned_lframes():
