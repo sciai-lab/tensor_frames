@@ -2,11 +2,11 @@ import e3nn
 import torch
 
 from tensor_frames.lframes.lframes import LFrames
-from tensor_frames.nn.locaformer import TensorFormer
+from tensor_frames.nn.locaformer import LoCaFormer
 from tensor_frames.reps.tensorreps import TensorReps
 
 
-def test_tensorformer_init_and_forward():
+def test_locaformer_init_and_forward():
     tensor_reps = TensorReps("10x0n+5x1n+2x2n")
     num_heads = 4
     hidden_layers = [128, 64]
@@ -14,7 +14,7 @@ def test_tensorformer_init_and_forward():
     hidden_scalar_dim = 64
     edge_embedding_dim = 32
 
-    model = TensorFormer(
+    model = LoCaFormer(
         tensor_reps=tensor_reps,
         num_heads=num_heads,
         hidden_layers=hidden_layers,
