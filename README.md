@@ -10,7 +10,7 @@
 
 ## Description
 
-The `tensorframes` package implements the message passing class described in the paper TODO This class generalizes the typical message passing algorithm by transforming features from one node's local frame to another node's frame. This transformation results in an $O(N)$ invariant layer, which can be used to construct fully equivariant architectures:
+The `tensor_frames` package implements the message passing class described in the paper TODO This class generalizes the typical message passing algorithm by transforming features from one node's local frame to another node's frame. This transformation results in an $O(N)$ invariant layer, which can be used to construct fully equivariant architectures:
 
 $$
 f_i^{(k)}=\\psi^{(k)}\\bigg( f_i^{(k-1)}, \\bigoplus\_{j\\in\\mathcal{N}}\\phi^{(k)}\\left(f_i^{(k-1)},\\rho(g_i g_j^{-1})f_j^{(k-1)}, \\rho_e(g_i)e\_{ji}, R_i(\\mathbf x_i - \\mathbf x_j)\\right) \\bigg)
