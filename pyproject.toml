@@ -5,7 +5,7 @@ version = "1.0.0"
 authors = []
 
 [tool.setuptools.package-data]
-"tensorframes.utils" = ["Jd.pt"]
+"tensor_frames.utils" = ["Jd.pt"]
 
 [tool.pytest.ini_options]
 addopts = [
