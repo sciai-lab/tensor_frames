@@ -3,7 +3,8 @@ from typing import Union
 import torch
 from e3nn.o3 import rand_matrix
 from torch import Tensor
-from torch_geometric.nn import knn
+from torch_geometric.nn import knn, radius
+from torch_geometric.utils import scatter
 
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
@@ -15,6 +16,86 @@ class LFramesPredictionModule(torch.nn.Module):
 
     def forward(self, *args, **kwargs) -> LFrames:
         assert NotImplementedError, "Subclasses must implement this method."
+
+
+class PCALFrames(LFramesPredictionModule):
+    """Computes local frames using PCA."""
+
+    def __init__(
+        self, r: float, max_num_neighbors: int = 64, exceptional_choice: str = "random"
+    ) -> None:
+        """Initializes an instance of the PCALFrames class.
+
+        Args:
+            radius (float): The radius for the PCA computation.
+            max_neighbors (int, optional): The maximum number of neighbors to consider. Defaults to 10.
+            exceptional_choice (str, optional): The choice for exceptional case (with zero neighbors). Defaults to "random".
+        """
+        super().__init__()
+        self.r = r
+        self.max_num_neighbors = max_num_neighbors
+        self.exceptional_choice = exceptional_choice
+
+    def forward(
+        self, pos: Tensor, idx: Union[Tensor, None] = None, batch: Union[Tensor, None] = None
+    ) -> LFrames:
+        """Forward pass of the LFrames module.
+
+        Args:
+            pos (Tensor): The input tensor of shape (N, D) representing the positions of N points in D-dimensional space.
+            idx (Tensor, optional): The indices of the points to consider. If None, all points are considered. Defaults to None.
+            batch (Tensor, optional): The batch indices of the points. If None, a batch of zeros is used. Defaults to None.
+
+        Returns:
+            LFrames: The computed local frames as an instance of the LFrames class.
+        """
+        if idx is None:
+            idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
+
+        if batch is None:
+            batch = torch.zeros(pos.shape[0], dtype=torch.int64, device=pos.device)
+
+        row, col = radius(
+            pos, pos[idx], self.r, batch, batch[idx], max_num_neighbors=self.max_num_neighbors
+        )
+        # print("average number of neighbors: ", len(row) / len(idx), "max_num_neighbors", self.max_num_neighbors)
+        edge_index = torch.stack([col, row], dim=0)
+        edge_vec = pos[edge_index[0]] - pos[edge_index[1]]  # (N_edges, dim)
+
+        cov_matrices = scatter(
+            edge_vec.unsqueeze(-1) * edge_vec.unsqueeze(-2),
+            edge_index[1],
+            dim=0,
+        )
+
+        # compute the PCA:
+        _, eigenvectors = torch.linalg.eigh(cov_matrices)
+
+        # choose the directions to be o3 equivariant:
+        eigenvectors = eigenvectors.transpose(-1, -2)  # (N, n_vec, dim_vec)
+
+        # for each eigenvector compute average dot product with edge vectors:
+        dots = torch.einsum("ijk,ik->ij", eigenvectors[edge_index[1]], edge_vec)
+        summed_dots = scatter(dots, edge_index[1], dim=0)  # (N, n_vec)
+        sign_mask = (summed_dots > 0).float() * 2 - 1
+        eigenvectors = eigenvectors * sign_mask.unsqueeze(-1)
+
+        # check how many neighbors each point has:
+        num_neighbors = scatter(
+            torch.ones_like(edge_index[0]), edge_index[1], dim=0, reduce="sum"
+        ).float()
+        no_neighbors_mask = num_neighbors <= 1
+        if self.exceptional_choice == "random":
+            random_lframes = RandomLFrames()(pos[no_neighbors_mask]).matrices
+            eigenvectors[no_neighbors_mask] = random_lframes
+        elif self.exceptional_choice == "zero":
+            eigenvectors[no_neighbors_mask] = 0.0
+        else:
+            assert (
+                NotImplementedError
+            ), f"exceptional_choice {self.exceptional_choice} not implemented"
+
+        return LFrames(eigenvectors)
 
 
 class ThreeNNLFrames(LFramesPredictionModule):
