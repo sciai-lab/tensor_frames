@@ -2,7 +2,10 @@
 name = 'tensor_frames'
 requires-python = ">=3.11"
 version = "1.0.0"
-authors = []
+authors = [
+  {name = "Gerrit Gerhartz", email = "gerhartz@thphys.uni-heidelberg.de"},
+  {name = "Peter Lippmann", email = "peter.lippmann@iwr.uni-heidelberg.de"},
+]
 
 [tool.setuptools.package-data]
 "tensor_frames.utils" = ["Jd.pt"]
