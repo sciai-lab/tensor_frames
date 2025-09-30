@@ -29,7 +29,7 @@ Lastly, we also implemented a simple attention-based message passing architectur
 The frame-to-frame transitions $\\rho(g_i g_j^{-1})f_j^{(k-1)}$ of tensorial messages (implemented by `TFMessagePassing`) enable expressive equivariant message passing between nodes with different local frames. Without frame-to-frame transitions the communication between nodes of different local frames is limited to the exchange of scalar messages:
 
 <div align="center">
-<img src="figs/scalar_vs_tensorial_messages.svg" width="80%"/>
+<img src="figs/scalar_vs_tensorial_messages.svg" width="60%"/>
 </div>
 
 ### Create your own module
@@ -109,7 +109,7 @@ If you find this code useful in your research, please consider citing the follow
 }
 ```
 
-## Related Work
+## Interesting Applications of tensor_frames
 
 This package is successfully being used in SOTA machine-learned Orbital-Free Density Function theory and in SOTA machine learning for particle physics:  
 [Stable and Accurate Orbital-Free Density Functional Theory Powered by Machine Learning](https://pubs.acs.org/doi/full/10.1021/jacs.5c06219)  
