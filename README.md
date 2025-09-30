@@ -22,9 +22,13 @@ $$
 
 The `TFMessagePassing` class is introduced to efficiently implement these layers, abstracting the transformation behavior of the parameters. For predicting local frames, the `LearnedLFrames` module is available, which calculates the local frame based on a local neighborhood, as described in the paper. Additionally, we provide input and output layers to build fully end-to-end equivariant models, adhering to the guidelines outlined in the referenced paper.
 
+Furthermore, we implemented different representation classes, which define the transformation behavior of features. The `TensorReps` class allows for the definition of arbitrary cartesian tensor representations, while the `Irreps` uses the irreducible representation of $\\mathrm{O}(3)$. Both classes are efficiently implemented and can be used interchangeably.
+
+Lastly, we also implemented a simple attention-based message passing architecture, called `LoCaFormer`. This architecture utilizes the `TFMessagePassing` class and serves as a practical example of how to build equivariant models using the `tensor_frames` package.
+
 ### Create your own module
 
-The whole transformations are abstracted away by the `TFMessagePassing` class, where every parameter is transformed into the right frame. A simple GCNConv-like module could look the following:
+The whole transformations are abstracted away by the `TFMessagePassing` class, where every parameter is transformed into the right frame. This class inherits from the `MessagePassing` class in PyTorch Geometric, which allows for easy integration with existing PyG models. A simple GCNConv-like module could look the following:
 
 ```python
 from tensor_frames.nn.tfmessage_passing import TFMessagePassing
@@ -66,7 +70,7 @@ class GCNConv(MessagePassing):
 
 ```
 
-Through the `TFMessagePassing` class the feature `x_j` is automatically transformed into the local frame of node i. The transformation behavior of the parameters which are parsed in the propagate function can be determined by the `params_dict`.
+Through the `TFMessagePassing` class the feature `x_j` is automatically transformed into the local frame of node i. The transformation behavior of the parameters which are parsed in the propagate function can be determined by the `params_dict`. Through this method every message passing layer, written using the PyG library, can be implemented as an equivariant layer in an efficient way.
 
 ## Installation
 
