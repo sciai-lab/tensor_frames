@@ -8,7 +8,11 @@
 
 </div>
 
-![image](method.png)
+<div align="center">
+
+![image](method.svg)
+
+</div>
 
 ## Description
 
