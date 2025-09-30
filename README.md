@@ -1,6 +1,6 @@
 <div align="center">
 
-# tensor_frames
+# tensor_frames: Expressive Equivariant Message Passing via Local Canonicalization
 
 [![python](https://img.shields.io/badge/-Python_3.11-blue?logo=python&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![pytorch](https://img.shields.io/badge/PyTorch_2.*-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
