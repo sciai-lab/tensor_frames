@@ -9,9 +9,7 @@
 </div>
 
 <div align="center">
-
-![image](method.svg)
-
+<img src="method.svg" width="90%"/>
 </div>
 
 ## Description
