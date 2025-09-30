@@ -1,6 +1,6 @@
 <div align="center">
 
-# tensorframes
+# tensor_frames: Expressive Equivariant Message Passing via Local Canonicalization
 
 [![python](https://img.shields.io/badge/-Python_3.11-blue?logo=python&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![pytorch](https://img.shields.io/badge/PyTorch_2.*-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
@@ -8,23 +8,37 @@
 
 </div>
 
+<div align="center">
+<img src="figs/method.svg" width="90%"/>
+</div>
+
 ## Description
 
-The `tensorframes` package implements the message passing class described in the paper https://arxiv.org/abs/2405.15389v1. This class generalizes the typical message passing algorithm by transforming features from one node's local frame to another node's frame. This transformation results in an $O(N)$ invariant layer, which can be used to construct fully equivariant architectures:
+The `tensor_frames` package implements the message passing class described in the [Beyond Canonicalization: How Tensorial Messages Improve Equivariant Message Passing](https://openreview.net/forum?id=vDp6StrKIq) and also depicted in the above figure. This class generalizes the typical message passing algorithm by transforming features from one node's local frame to another node's frame. This transformation results in an $O(N)$ invariant layer, which can be used to construct fully equivariant architectures:
 
 $$
 f_i^{(k)}=\\psi^{(k)}\\bigg( f_i^{(k-1)}, \\bigoplus\_{j\\in\\mathcal{N}}\\phi^{(k)}\\left(f_i^{(k-1)},\\rho(g_i g_j^{-1})f_j^{(k-1)}, \\rho_e(g_i)e\_{ji}, R_i(\\mathbf x_i - \\mathbf x_j)\\right) \\bigg)
 $$
 
-The `TFMessagePassing` class is introduced to efficiently implement these layers, abstracting the transformation behavior of the parameters. For predicting local frames, the `LearnedLFrames` module is available, which calculates the local frame based on a local neighborhood. Additionally, we provide input and output layers to build fully end-to-end equivariant models, adhering to the guidelines outlined in the referenced paper.
+The `TFMessagePassing` class is introduced to efficiently implement these layers, abstracting the transformation behavior of the parameters. For predicting local frames, the `LearnedLFrames` module is available, which calculates the local frame based on a local neighborhood, as described in the paper. Additionally, we provide input and output layers to build fully end-to-end equivariant models, adhering to the guidelines outlined in the referenced paper.
+
+Furthermore, we implemented different representation classes, which define the transformation behavior of features. The `TensorReps` class allows for the definition of arbitrary cartesian tensor representations, while the `Irreps` uses the irreducible representation of $\\mathrm{O}(3)$. Both classes are efficiently implemented and can be used interchangeably.
+
+Lastly, we also implemented a simple attention-based message passing architecture, called `LoCaFormer`. This architecture utilizes the `TFMessagePassing` class and serves as a practical example of how to build equivariant models using the `tensor_frames` package.
+
+The frame-to-frame transitions $\\rho(g_i g_j^{-1})f_j^{(k-1)}$ of tensorial messages (implemented by `TFMessagePassing`) enable expressive equivariant message passing between nodes with different local frames. Without frame-to-frame transitions the communication between nodes of different local frames is limited to the exchange of scalar messages:
+
+<div align="center">
+<img src="figs/scalar_vs_tensorial_messages.svg" width="60%"/>
+</div>
 
 ### Create your own module
 
-The whole transformations are abstracted away by the `TFMessagePassing` class, where every parameter is transformed into the right frame. A simple GCNConv-like module could look the following:
+The whole transformations are abstracted away by the `TFMessagePassing` class, where every parameter is transformed into the right frame. This class inherits from the `MessagePassing` class in PyTorch Geometric, which allows for easy integration with existing PyG models. A simple GCNConv-like module could look the following:
 
 ```python
-from tensorframes.nn.tfmessage_passing import TFMessagePassing
-from tensorframes.reps.tensorreps import TensorReps
+from tensor_frames.nn.tfmessage_passing import TFMessagePassing
+from tensor_frames.reps.tensorreps import TensorReps
 
 class GCNConv(TFMessagePassing):
     def __init__(self, in_reps: TensorReps, out_reps: TensorReps):
@@ -44,16 +58,27 @@ class GCNConv(TFMessagePassing):
 module = GCNConv(TensorReps("16x0n+8x1n"), TensorReps("4x0n+1x1n"))
 ```
 
-Here the feature `x_j` is automatically transformed into the local frame of node i. The transformation behavior of the parameters which are parsed in the propagate function can be determined by the `params_dict`.
+where the PyG equivalent would look like:
+
+```python
+from torch_geometric.nn import MessagePassing
+
+class GCNConv(MessagePassing):
+    def __init__(self, in_channels, out_channels):
+        super().__init__(aggr='add')
+        self.linear = torch.nn.Linear(in_channels, out_channels)
+
+    def forward(self, x, edge_index):
+        return self.propagate(edge_index, x=x)
+
+    def message(self, x_j):
+        return self.linear(x_j)
+
+```
+
+Through the `TFMessagePassing` class the feature `x_j` is automatically transformed into the local frame of node i. The transformation behavior of the parameters which are parsed in the propagate function can be determined by the `params_dict`. Through this method every message passing layer, written using the PyG library, can be implemented as an equivariant layer in an efficient way.
 
 ## Installation
-
-#### Clone Project
-
-```bash
-git clone https://github.com/sciai-lab/tensorframes
-cd tensorframes
-```
 
 #### Install using Conda/Mamba/Micromamba
 
@@ -61,14 +86,34 @@ For mamba or micromamba replace `conda` with `mamba` or `micromamba` below. (Mic
 
 ```bash
 # create conda environment and install dependencies
-conda env create -f environment.yaml -n tensorframes
+conda env create -f environment.yaml -n tensor_frames
 
 # activate conda environment
-conda activate tensorframes
+conda activate tensor_frames
 
 # install as an editable package (params are used because of vscode autofill)
 pip install -e . --config-settings editable_mode=strict
 ```
+
+## Citation
+
+If you find this code useful in your research, please consider citing the following paper:
+
+```
+@inproceedings{lippmann2025beyond,
+  title={Beyond Canonicalization: How Tensorial Messages Improve Equivariant Message Passing},
+  author={Lippmann, Peter and Gerhartz, Gerrit and Remme, Roman and Hamprecht, Fred A},
+  booktitle={The Thirteenth International Conference on Learning Representations},
+  year={2025},
+  url={https://openreview.net/forum?id=vDp6StrKIq}
+}
+```
+
+## Interesting Applications of tensor_frames
+
+This package is successfully being used in SOTA machine-learned Orbital-Free Density Function theory and in SOTA machine learning for particle physics:  
+[Stable and Accurate Orbital-Free Density Functional Theory Powered by Machine Learning](https://pubs.acs.org/doi/full/10.1021/jacs.5c06219)  
+[Lorentz Local Canonicalization: How to Make Any Network Lorentz-Equivariant](https://arxiv.org/abs/2505.20280)
 
 ## Developer Info
 

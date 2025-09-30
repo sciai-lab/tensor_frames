@@ -1,9 +1,9 @@
 import torch
 
-from tensorframes.lframes.classical_lframes import RandomLFrames
-from tensorframes.nn.local_global import FromGlobalToLocalFrame, FromLocalToGlobalFrame
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensor_frames.lframes.classical_lframes import RandomLFrames
+from tensor_frames.nn.local_global import FromGlobalToLocalFrame, FromLocalToGlobalFrame
+from tensor_frames.reps.irreps import Irreps
+from tensor_frames.reps.tensorreps import TensorReps
 
 
 def test_local_global_trafo_irreps():

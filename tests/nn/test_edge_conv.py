@@ -1,10 +1,10 @@
 import torch
 
-from tensorframes.lframes.classical_lframes import RandomLFrames
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.nn.edge_conv import EdgeConv
-from tensorframes.reps.irreps import Irreps
-from tensorframes.reps.tensorreps import TensorReps
+from tensor_frames.lframes.classical_lframes import RandomLFrames
+from tensor_frames.lframes.lframes import LFrames
+from tensor_frames.nn.edge_conv import EdgeConv
+from tensor_frames.reps.irreps import Irreps
+from tensor_frames.reps.tensorreps import TensorReps
 
 
 def test_edge_conv():

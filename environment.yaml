@@ -5,7 +5,7 @@
 # - conda allows for installing packages without requiring certain compilers or
 #   libraries to be available in the system, since it installs precompiled binaries
 
-name: tensor
+name: tensor_frames
 
 channels:
   - pytorch
@@ -36,7 +36,6 @@ dependencies:
   - pytest=7.*
   - pytest-cov
   - h5py
-  - tensorboard
   - e3nn
   - tqdm
   - nodejs # just for yaml formatting pre-commit
@@ -45,18 +44,8 @@ dependencies:
   - zarr
   - pytorch-scatter
   - pytorch-cluster
-  - ipytree
-  - sqlalchemy=1.4.46
-  - mysqlclient=2.2.1
   - trimesh
   - pocl
-
-  # --------- loggers --------- #
-  # - wandb
-  # - neptune-client
-  # - mlflow
-  # - comet-ml
-  # - aim>=3.16.2 # no lower than 3.16.2, see https://github.com/aimhubio/aim/issues/2550
 
   - pip>=23
   - pip:

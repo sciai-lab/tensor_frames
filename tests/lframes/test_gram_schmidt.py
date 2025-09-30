@@ -1,6 +1,6 @@
 import torch
 
-from tensorframes.lframes.gram_schmidt import (
+from tensor_frames.lframes.gram_schmidt import (
     double_cross_orthogonalize,
     gram_schmidt,
     gram_schmidt_old,

@@ -1,8 +1,8 @@
 import torch
 from e3nn import o3
 
-from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
-from tensorframes.reps.tensorreps import TensorRep, TensorReps, TensorRepsTransform
+from tensor_frames.lframes.lframes import ChangeOfLFrames, LFrames
+from tensor_frames.reps.tensorreps import TensorRep, TensorReps, TensorRepsTransform
 
 
 def test_tensorreps():
