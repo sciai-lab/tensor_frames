@@ -9,7 +9,7 @@
 </div>
 
 <div align="center">
-<img src="method.svg" width="90%"/>
+<img src="figs/method.svg" width="90%"/>
 </div>
 
 ## Description
@@ -25,6 +25,12 @@ The `TFMessagePassing` class is introduced to efficiently implement these layers
 Furthermore, we implemented different representation classes, which define the transformation behavior of features. The `TensorReps` class allows for the definition of arbitrary cartesian tensor representations, while the `Irreps` uses the irreducible representation of $\\mathrm{O}(3)$. Both classes are efficiently implemented and can be used interchangeably.
 
 Lastly, we also implemented a simple attention-based message passing architecture, called `LoCaFormer`. This architecture utilizes the `TFMessagePassing` class and serves as a practical example of how to build equivariant models using the `tensor_frames` package.
+
+The frame-to-frame transitions $\\rho(g_i g_j^{-1})f_j^{(k-1)}$ of tensorial messages (implemented by `TFMessagePassing`) enable expressive equivariant message passing between nodes with different local frames. Without frame-to-frame transitions the communication between nodes of different local frames is limited to the exchange of scalar messages:
+
+<div align="center">
+<img src="figs/scalar_vs_tensorial_messages.svg" width="80%"/>
+</div>
 
 ### Create your own module
 
@@ -102,6 +108,12 @@ If you find this code useful in your research, please consider citing the follow
   url={https://openreview.net/forum?id=vDp6StrKIq}
 }
 ```
+
+## Related Work
+
+This package is successfully being used in SOTA machine-learned Orbital-Free Density Function theory and in SOTA machine learning for particle physics:  
+[Stable and Accurate Orbital-Free Density Functional Theory Powered by Machine Learning](https://pubs.acs.org/doi/full/10.1021/jacs.5c06219)  
+[Lorentz Local Canonicalization: How to Make Any Network Lorentz-Equivariant](https://arxiv.org/abs/2505.20280)
 
 ## Developer Info
 
