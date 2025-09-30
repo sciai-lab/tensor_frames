@@ -8,15 +8,17 @@
 
 </div>
 
+![image](method.png)
+
 ## Description
 
-The `tensor_frames` package implements the message passing class described in the paper TODO This class generalizes the typical message passing algorithm by transforming features from one node's local frame to another node's frame. This transformation results in an $O(N)$ invariant layer, which can be used to construct fully equivariant architectures:
+The `tensor_frames` package implements the message passing class described in the [Beyond Canonicalization: How Tensorial Messages Improve Equivariant Message Passing](https://openreview.net/forum?id=vDp6StrKIq) and also depicted in the above figure. This class generalizes the typical message passing algorithm by transforming features from one node's local frame to another node's frame. This transformation results in an $O(N)$ invariant layer, which can be used to construct fully equivariant architectures:
 
 $$
 f_i^{(k)}=\\psi^{(k)}\\bigg( f_i^{(k-1)}, \\bigoplus\_{j\\in\\mathcal{N}}\\phi^{(k)}\\left(f_i^{(k-1)},\\rho(g_i g_j^{-1})f_j^{(k-1)}, \\rho_e(g_i)e\_{ji}, R_i(\\mathbf x_i - \\mathbf x_j)\\right) \\bigg)
 $$
 
-The `TFMessagePassing` class is introduced to efficiently implement these layers, abstracting the transformation behavior of the parameters. For predicting local frames, the `LearnedLFrames` module is available, which calculates the local frame based on a local neighborhood. Additionally, we provide input and output layers to build fully end-to-end equivariant models, adhering to the guidelines outlined in the referenced paper.
+The `TFMessagePassing` class is introduced to efficiently implement these layers, abstracting the transformation behavior of the parameters. For predicting local frames, the `LearnedLFrames` module is available, which calculates the local frame based on a local neighborhood, as described in the paper. Additionally, we provide input and output layers to build fully end-to-end equivariant models, adhering to the guidelines outlined in the referenced paper.
 
 ### Create your own module
 
@@ -44,7 +46,25 @@ class GCNConv(TFMessagePassing):
 module = GCNConv(TensorReps("16x0n+8x1n"), TensorReps("4x0n+1x1n"))
 ```
 
-Here the feature `x_j` is automatically transformed into the local frame of node i. The transformation behavior of the parameters which are parsed in the propagate function can be determined by the `params_dict`.
+where the PyG equivalent would look like:
+
+```python
+from torch_geometric.nn import MessagePassing
+
+class GCNConv(MessagePassing):
+    def __init__(self, in_channels, out_channels):
+        super().__init__(aggr='add')
+        self.linear = torch.nn.Linear(in_channels, out_channels)
+
+    def forward(self, x, edge_index):
+        return self.propagate(edge_index, x=x)
+
+    def message(self, x_j):
+        return self.linear(x_j)
+
+```
+
+Through the `TFMessagePassing` class the feature `x_j` is automatically transformed into the local frame of node i. The transformation behavior of the parameters which are parsed in the propagate function can be determined by the `params_dict`.
 
 ## Installation
 
@@ -61,6 +81,20 @@ conda activate tensor_frames
 
 # install as an editable package (params are used because of vscode autofill)
 pip install -e . --config-settings editable_mode=strict
+```
+
+## Citation
+
+If you find this code useful in your research, please consider citing the following paper:
+
+```
+@inproceedings{lippmann2025beyond,
+  title={Beyond Canonicalization: How Tensorial Messages Improve Equivariant Message Passing},
+  author={Lippmann, Peter and Gerhartz, Gerrit and Remme, Roman and Hamprecht, Fred A},
+  booktitle={The Thirteenth International Conference on Learning Representations},
+  year={2025},
+  url={https://openreview.net/forum?id=vDp6StrKIq}
+}
 ```
 
 ## Developer Info
